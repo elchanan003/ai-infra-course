@@ -1,0 +1,23 @@
+# Coordinator decisions after WP0 (2026-10-26) — binding for WP2+ (overrides PLAN.md where different)
+
+Pins: `.build/versions.proposed.env` → becomes `platform/versions.env` (WP2). Evidence: `.build/wp0-report.md`.
+
+1. llama.cpp `server-b11889`. No KV gauge in /metrics. Lab 1.5 = file size + RSS + prompt-eval ratio (Q8 prompt-eval ~3x faster than Q4 on N1 — teach why: kernel/ISA, quant ≠ always faster); no gen tok/s ordering.
+2. vLLM CPU: pin v0.31.0, `--dtype float32`, ~6 GB, ~10 tok/s. Profile `vllm` runs alone (no llm, no lf, no kind). Task 3.7 optional/unscored; never rely on prefix-cache hits on CPU. Golden metrics + real KV-too-big error: `.build/spike/vllm-metrics-golden.txt`, `.build/spike/vllm-kv-err.log` → mock-vllm must copy names/strings from these. Run vllm container as non-root (or own volume) — WP0 left root-owned `~/.cache/aiinfra-course/hf/{hub,xet}`; setup.sh fixes ownership via a throwaway container (`chown`), never sudo.
+3. LiteLLM v1.106.4. Global limits across replicas need `litellm_settings.cache: true` + `cache_params: {type: redis, ..., supported_call_types: []}` (router redis alone is not enough) — this is the lesson of 4.5 and capstone #1. RPM is a 60 s fixed window: burst check = ≤limit×200 and ≥1×429; recovery poll ≤ 70 s. Budget exceeded = HTTP 422 (assert status class + error type, not text); budget/spend checks use sequential requests only. `proxy_batch_write_at: 5` → spend lag 2-5 s; `litellm_flush_wait` polls ≤ 30 s. `/metrics` not enterprise-gated; base config sets `require_auth_for_metrics_endpoint: false`; scrape path `/metrics/` (307).
+4. mock-vllm must return a unique `id` per response (LiteLLM uses it as SpendLogs PK).
+5. Langfuse v3 3.225.14 + ClickHouse 25.8 (~2.75 GB). v4 rejected (needs ClickHouse ≥25.12).
+6. kind: load images with `docker save --platform linux/arm64 IMG | kind load image-archive /dev/stdin --name aiinfra` (or temp file); kind node containers found via label `io.x-k8s.kind.cluster=aiinfra`. GPU: node-status patch primary; fake-gpu-operator works on arm64 → optional extra; its DCGM exporter has only FB_USED/FB_FREE/GPU_UTIL → mock-dcgm stays.
+7. Registry digests ≠ local index digests (containerd store): checks compare registry manifest digest vs `RepoDigests`/running container's image ref by digest, never local `.Id`.
+8. Python: two venvs — `platform/.venv` (huggingface_hub 2.3.0, openai, mcp 2.3.0, safetensors, picklescan, boto3, qdrant-client, prometheus-client, pyyaml, requests) and `platform/.venv-aider` (aider-chat 0.86.2). `hf download` always with explicit `--include` patterns.
+9. hf-mirror: 4 endpoints (model revision info, tree, HEAD resolve, GET resolve); reference: `.build/spike/minimirror.py`.
+10. Tripwire: dnsmasq resolving everything to a sink + **query log** is the hit counter (HTTPS host visible only via DNS). Internal network containers can't publish ports → probes run inside the network (`docker run --network aiinfra-airgap`).
+11. Disk: course pre-pull ≈ 20.5 GB (open-webui 5.8 GB, vllm 4.5 GB). setup.sh pulls are slow: idempotent, resumable, skip present images.
+12. Locking: the harness itself must take the lock — `platform/lab-session.sh <cmd...>` wraps `flock -w 1800 /tmp/aiinfra-course-lab.lock` + owner file; authors run every prepare/verify/cleanup sequence through it.
+
+## WP2 ↔ WP3 interface (fixed now so both run in parallel)
+- `mock/` is owned by WP3: `mock/Dockerfile` → image `aiinfra-mock:1.0` (FROM python:3.12-slim). Role = first arg: `vllm`, `dcgm`, `hf-mirror`. Listens on container port 8000. `GET /health` (200 when ready; mock-vllm returns 503 / exits non-zero on startup-config failure like real vLLM). `GET /metrics` for vllm & dcgm.
+- mock-vllm config: directory mounted at `/config`; file `/config/args` = vLLM-style CLI flags (e.g. `--model /models/qwen2.5-7b --max-model-len 8192 --gpu-memory-utilization 0.9 --max-num-seqs 64 --served-model-name chat`); model geometry from `<model>/config.json` (fixtures shipped in `mock/models/`); simulated GPU via `/config/gpu.yaml`. Fault API `POST/GET/DELETE /admin/fault`, stats `GET /admin/stats`, scripted chat mode via `/config/script.yaml` (optional). Compose env overrides: `MOCK_VLLM_A_CONFIG_DIR`, `MOCK_VLLM_B_CONFIG_DIR`, `MOCK_DCGM_CONFIG_DIR` (default `platform/stack/config/mock-*`).
+- mock-dcgm config `/config/gpus.yaml` (nodes/GPUs); one container per simulated node (A, B).
+- tripwire: `mock/tripwire/Dockerfile` → image `aiinfra-tripwire:1.0` (dnsmasq + tiny HTTP sink + `GET /hits` JSON counter on port 8000; also `DELETE /hits`). Static IP on both `aiinfra` and `aiinfra-airgap` networks; is the DNS server of `aiinfra-airgap`.
+- `platform/stack.sh build` builds both images (WP2 calls `docker build mock/` and `mock/tripwire/`).
