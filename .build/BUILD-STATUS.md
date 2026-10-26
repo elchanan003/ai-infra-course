@@ -24,3 +24,4 @@ Shared author docs: .build/author-brief.md, .build/finish-prefix.md. Validator: 
 ## Phase-2 notes per author (coordinator)
 - E (10, 11): phase 1 done. CONFIRM items in modules/10-capstone/.tutor/design.md must be reconciled with mock/README.md + platform/stack/README.md.
 - B (03, 08): phase 1 done; theory only 244/263 lines → phase 2 must deepen to ≥400 each; reconcile service names, LiteLLM metric names (live), startup error texts (golden/spike only, no paraphrase).
+- D (07, 09): phase 1 done (07 theory 419, 09 theory 335 → deepen to ≥400 in phase 2). Assumes kind workers gpu-node-a (2 GPU) / gpu-node-b (1 GPU) via k8s.sh gpu-patch topology; SANDBOX_IMAGE pin; mock-chat pattern lookup_ticket (module may ship its own script.yaml); resolve all "(TBC)" against real READMEs.

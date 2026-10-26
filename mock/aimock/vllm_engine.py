@@ -229,7 +229,7 @@ class Engine:
         if pf:
             dt += pf / self.pf_tps
             if not decoders:
-                dt += 0.0005
+                dt += self.dec_base
         if dt == 0.0:
             stalls = [r.stall_until - now for r in self.running if r.stall_until > now]
             dt = min(stalls) if stalls else IDLE_TICK
