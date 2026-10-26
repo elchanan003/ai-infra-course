@@ -1,0 +1,4 @@
+{"identities":[
+ {"name":"rw","credentials":[{"accessKey":"rwkey","secretKey":"rwsecret123"}],"actions":["Admin","Read","Write","List","Tagging"]},
+ {"name":"ro","credentials":[{"accessKey":"rokey","secretKey":"rosecret123"}],"actions":["Read","List"]}
+]}

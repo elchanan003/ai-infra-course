@@ -1,0 +1,7 @@
+{"uid":"aiinfra-stack","title":"AI stack health","schemaVersion":39,"version":1,"refresh":"10s","time":{"from":"now-15m","to":"now"},
+ "panels":[
+  {"id":1,"type":"stat","title":"Targets up","gridPos":{"x":0,"y":0,"w":6,"h":5},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"count(up == 1)"}]},
+  {"id":2,"type":"timeseries","title":"up by job","gridPos":{"x":6,"y":0,"w":18,"h":5},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (job) (up)","legendFormat":"{{job}}"}]},
+  {"id":3,"type":"timeseries","title":"LiteLLM requests/s","gridPos":{"x":0,"y":5,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum(rate(litellm_proxy_total_requests_metric_total[1m]))"}]},
+  {"id":4,"type":"timeseries","title":"llama.cpp tokens/s","gridPos":{"x":12,"y":5,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (instance) (rate(llamacpp:tokens_predicted_total[1m]))","legendFormat":"{{instance}}"}]}
+ ]}

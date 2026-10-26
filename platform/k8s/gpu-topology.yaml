@@ -1,0 +1,16 @@
+# Simulated GPU topology for `platform/k8s.sh gpu-patch [file]` (SIMULATION: node-status patch, no GPU exists).
+# Per node: nvidia.com/gpu capacity+allocatable, GFD-style labels (nvidia.com/gpu.*), optional taint
+# nvidia.com/gpu=present:NoSchedule (like a GPU node pool). Production: device plugin + GPU Feature Discovery.
+nodes:
+  aiinfra-worker:
+    gpus: 2
+    product: NVIDIA-A100-SXM4-80GB
+    memory_mib: 81920
+    mig_capable: true
+    taint: true
+  aiinfra-worker2:
+    gpus: 1
+    product: NVIDIA-L4
+    memory_mib: 23034
+    mig_capable: false
+    taint: false

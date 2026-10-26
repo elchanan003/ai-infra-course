@@ -1,0 +1,27 @@
+# kind cluster "aiinfra" (CONVENTIONS.md section 3): 1 control-plane + 2 workers; NodePorts 30000-30010 are
+# published on the host as 127.0.0.1:18100-18110 (via the control-plane node; kube-proxy routes to any pod).
+# Used by platform/k8s.sh. Node labels course=aiinfra are applied by kubelet at registration.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: aiinfra
+networking:
+  apiServerAddress: "127.0.0.1"
+nodes:
+  - role: control-plane
+    labels: { course: aiinfra }
+    extraPortMappings:
+      - { containerPort: 30000, hostPort: 18100, listenAddress: "127.0.0.1", protocol: TCP }
+      - { containerPort: 30001, hostPort: 18101, listenAddress: "127.0.0.1", protocol: TCP }
+      - { containerPort: 30002, hostPort: 18102, listenAddress: "127.0.0.1", protocol: TCP }
+      - { containerPort: 30003, hostPort: 18103, listenAddress: "127.0.0.1", protocol: TCP }
+      - { containerPort: 30004, hostPort: 18104, listenAddress: "127.0.0.1", protocol: TCP }
+      - { containerPort: 30005, hostPort: 18105, listenAddress: "127.0.0.1", protocol: TCP }
+      - { containerPort: 30006, hostPort: 18106, listenAddress: "127.0.0.1", protocol: TCP }
+      - { containerPort: 30007, hostPort: 18107, listenAddress: "127.0.0.1", protocol: TCP }
+      - { containerPort: 30008, hostPort: 18108, listenAddress: "127.0.0.1", protocol: TCP }
+      - { containerPort: 30009, hostPort: 18109, listenAddress: "127.0.0.1", protocol: TCP }
+      - { containerPort: 30010, hostPort: 18110, listenAddress: "127.0.0.1", protocol: TCP }
+  - role: worker
+    labels: { course: aiinfra }
+  - role: worker
+    labels: { course: aiinfra }

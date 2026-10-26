@@ -1,0 +1,12 @@
+# Course models. Cache: ${AIINFRA_CACHE:-~/.cache/aiinfra-course}. Consumed by platform/setup.sh.
+# kind | name | repo | file-or-include-patterns (comma separated) | dest
+#   gguf : single file -> $CACHE/models/<file>
+#   hf   : HF-layout snapshot -> $CACHE/hf/hub (HF_HUB_CACHE); explicit --include patterns only
+gguf|qwen2.5-0.5b-instruct-q4_k_m|Qwen/Qwen2.5-0.5B-Instruct-GGUF|qwen2.5-0.5b-instruct-q4_k_m.gguf
+gguf|qwen2.5-0.5b-instruct-q8_0|Qwen/Qwen2.5-0.5B-Instruct-GGUF|qwen2.5-0.5b-instruct-q8_0.gguf
+gguf|qwen2.5-coder-0.5b-q4_k_m|bartowski/Qwen2.5-Coder-0.5B-GGUF|Qwen2.5-Coder-0.5B-Q4_K_M.gguf
+gguf|qwen2.5-coder-0.5b-q8_0|bartowski/Qwen2.5-Coder-0.5B-GGUF|Qwen2.5-Coder-0.5B-Q8_0.gguf
+gguf|bge-small-en-v1.5-q4_k_m|CompendiumLabs/bge-small-en-v1.5-gguf|bge-small-en-v1.5-q4_k_m.gguf
+gguf|bge-small-en-v1.5-q8_0|CompendiumLabs/bge-small-en-v1.5-gguf|bge-small-en-v1.5-q8_0.gguf
+hf|smollm2-360m-instruct|HuggingFaceTB/SmolLM2-360M-Instruct|*.json,*.txt,*.safetensors
+hf|qwen2.5-0.5b-instruct|Qwen/Qwen2.5-0.5B-Instruct|*.json,*.txt,*.safetensors

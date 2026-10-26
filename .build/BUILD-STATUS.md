@@ -20,3 +20,7 @@ Lab tests must hold the lock: flock -w 1800 /tmp/aiinfra-course-lab.lock -c '...
 
 Phases: authors are launched in 2 phases; phase 2 is triggered by the coordinator via SendMessage (or a new agent with finish-prefix.md if the original is gone). E phase 2 only after 03/04/05/09 validated.
 Shared author docs: .build/author-brief.md, .build/finish-prefix.md. Validator: .build/validate-module.sh (WP2).
+
+## Phase-2 notes per author (coordinator)
+- E (10, 11): phase 1 done. CONFIRM items in modules/10-capstone/.tutor/design.md must be reconciled with mock/README.md + platform/stack/README.md.
+- B (03, 08): phase 1 done; theory only 244/263 lines → phase 2 must deepen to ≥400 each; reconcile service names, LiteLLM metric names (live), startup error texts (golden/spike only, no paraphrase).

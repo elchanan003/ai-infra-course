@@ -1,0 +1,2 @@
+# Images side-loaded into the kind nodes by `k8s.sh up` (only if present in the host Docker cache; never pulled here).
+python:3.12-slim

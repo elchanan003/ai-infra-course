@@ -1,0 +1,1074 @@
+[
+ {
+  "name": "vllm:estimated_flops_per_gpu",
+  "type": "counter",
+  "help": "Estimated number of floating point operations per GPU (for Model Flops Utilization calculations).",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:estimated_read_bytes_per_gpu",
+  "type": "counter",
+  "help": "Estimated number of bytes read from memory per GPU (for Model Flops Utilization calculations).",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:estimated_write_bytes_per_gpu",
+  "type": "counter",
+  "help": "Estimated number of bytes written to memory per GPU (for Model Flops Utilization calculations).",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:num_requests_running",
+  "type": "gauge",
+  "help": "Number of requests in model execution batches.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:num_requests_waiting",
+  "type": "gauge",
+  "help": "Number of requests waiting to be processed.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:num_requests_waiting_by_reason",
+  "type": "gauge",
+  "help": "Number of waiting requests by reason. Reason labels: 'capacity' = waiting for scheduling capacity; 'deferred' = deferred by transient constraints (LoRA budget, KV transfer, blocked status). Sum of all reasons equals vllm:num_requests_waiting.",
+  "labelnames": [
+   "engine",
+   "model_name",
+   "reason"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    "capacity"
+   ],
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    "deferred"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:engine_sleep_state",
+  "type": "gauge",
+  "help": "Engine sleep state; awake = 0 means engine is sleeping; awake = 1 means engine is awake; weights_offloaded = 1 means sleep level 1; discard_all = 1 means sleep level 2.",
+  "labelnames": [
+   "engine",
+   "model_name",
+   "sleep_state"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    "awake"
+   ],
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    "weights_offloaded"
+   ],
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    "discard_all"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:kv_cache_usage_perc",
+  "type": "gauge",
+  "help": "KV-cache usage. 1 means 100 percent usage.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:prefix_cache_queries",
+  "type": "counter",
+  "help": "Prefix cache queries, in terms of number of queried tokens.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:prefix_cache_hits",
+  "type": "counter",
+  "help": "Prefix cache hits, in terms of number of cached tokens.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:external_prefix_cache_queries",
+  "type": "counter",
+  "help": "External prefix cache queries from KV connector cross-instance cache sharing, in terms of number of queried tokens.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:external_prefix_cache_hits",
+  "type": "counter",
+  "help": "External prefix cache hits from KV connector cross-instance cache sharing, in terms of number of cached tokens.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:mm_cache_queries",
+  "type": "counter",
+  "help": "Multi-modal cache queries, in terms of number of queried items.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:mm_cache_hits",
+  "type": "counter",
+  "help": "Multi-modal cache hits, in terms of number of cached items.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:num_preemptions",
+  "type": "counter",
+  "help": "Cumulative number of preemption from the engine.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:prompt_tokens",
+  "type": "counter",
+  "help": "Number of prefill tokens processed.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:prompt_tokens_by_source",
+  "type": "counter",
+  "help": "Number of prompt tokens by source.",
+  "labelnames": [
+   "engine",
+   "model_name",
+   "source"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    "local_compute"
+   ],
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    "local_cache_hit"
+   ],
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    "external_kv_transfer"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:prompt_tokens_cached",
+  "type": "counter",
+  "help": "Number of cached prompt tokens (local + external).",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:generation_tokens",
+  "type": "counter",
+  "help": "Number of generation tokens processed.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:request_success",
+  "type": "counter",
+  "help": "Count of successfully processed requests.",
+  "labelnames": [
+   "engine",
+   "finished_reason",
+   "model_name"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "0",
+    "stop",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ],
+   [
+    "0",
+    "length",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ],
+   [
+    "0",
+    "abort",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ],
+   [
+    "0",
+    "error",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ],
+   [
+    "0",
+    "repetition",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:request_prompt_tokens",
+  "type": "histogram",
+  "help": "Number of prefill tokens processed.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   1.0,
+   2.0,
+   5.0,
+   10.0,
+   20.0,
+   50.0,
+   100.0,
+   200.0,
+   500.0,
+   1000.0,
+   2000.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:request_generation_tokens",
+  "type": "histogram",
+  "help": "Number of generation tokens processed.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   1.0,
+   2.0,
+   5.0,
+   10.0,
+   20.0,
+   50.0,
+   100.0,
+   200.0,
+   500.0,
+   1000.0,
+   2000.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:iteration_tokens_total",
+  "type": "histogram",
+  "help": "Histogram of number of tokens per engine_step.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   1.0,
+   8.0,
+   16.0,
+   32.0,
+   64.0,
+   128.0,
+   256.0,
+   512.0,
+   1024.0,
+   2048.0,
+   4096.0,
+   8192.0,
+   16384.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:request_max_num_generation_tokens",
+  "type": "histogram",
+  "help": "Histogram of maximum number of requested generation tokens.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   1.0,
+   2.0,
+   5.0,
+   10.0,
+   20.0,
+   50.0,
+   100.0,
+   200.0,
+   500.0,
+   1000.0,
+   2000.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:request_params_n",
+  "type": "histogram",
+  "help": "Histogram of the n request parameter.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   1.0,
+   2.0,
+   5.0,
+   10.0,
+   20.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:request_params_max_tokens",
+  "type": "histogram",
+  "help": "Histogram of the max_tokens request parameter.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   1.0,
+   2.0,
+   5.0,
+   10.0,
+   20.0,
+   50.0,
+   100.0,
+   200.0,
+   500.0,
+   1000.0,
+   2000.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:time_to_first_token_seconds",
+  "type": "histogram",
+  "help": "Histogram of time to first token in seconds.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   0.001,
+   0.005,
+   0.01,
+   0.02,
+   0.04,
+   0.06,
+   0.08,
+   0.1,
+   0.25,
+   0.5,
+   0.75,
+   1.0,
+   2.5,
+   5.0,
+   7.5,
+   10.0,
+   20.0,
+   40.0,
+   80.0,
+   160.0,
+   640.0,
+   2560.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:inter_token_latency_seconds",
+  "type": "histogram",
+  "help": "Histogram of inter-token latency in seconds.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   0.01,
+   0.025,
+   0.05,
+   0.075,
+   0.1,
+   0.15,
+   0.2,
+   0.3,
+   0.4,
+   0.5,
+   0.75,
+   1.0,
+   2.5,
+   5.0,
+   7.5,
+   10.0,
+   20.0,
+   40.0,
+   80.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:request_time_per_output_token_seconds",
+  "type": "histogram",
+  "help": "Histogram of time_per_output_token_seconds per request.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   0.01,
+   0.025,
+   0.05,
+   0.075,
+   0.1,
+   0.15,
+   0.2,
+   0.3,
+   0.4,
+   0.5,
+   0.75,
+   1.0,
+   2.5,
+   5.0,
+   7.5,
+   10.0,
+   20.0,
+   40.0,
+   80.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:e2e_request_latency_seconds",
+  "type": "histogram",
+  "help": "Histogram of e2e request latency in seconds.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   0.3,
+   0.5,
+   0.8,
+   1.0,
+   1.5,
+   2.0,
+   2.5,
+   5.0,
+   10.0,
+   15.0,
+   20.0,
+   30.0,
+   40.0,
+   50.0,
+   60.0,
+   120.0,
+   240.0,
+   480.0,
+   960.0,
+   1920.0,
+   7680.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:request_queue_time_seconds",
+  "type": "histogram",
+  "help": "Histogram of time spent in WAITING phase for request.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   0.3,
+   0.5,
+   0.8,
+   1.0,
+   1.5,
+   2.0,
+   2.5,
+   5.0,
+   10.0,
+   15.0,
+   20.0,
+   30.0,
+   40.0,
+   50.0,
+   60.0,
+   120.0,
+   240.0,
+   480.0,
+   960.0,
+   1920.0,
+   7680.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:request_inference_time_seconds",
+  "type": "histogram",
+  "help": "Histogram of time spent in RUNNING phase for request.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   0.3,
+   0.5,
+   0.8,
+   1.0,
+   1.5,
+   2.0,
+   2.5,
+   5.0,
+   10.0,
+   15.0,
+   20.0,
+   30.0,
+   40.0,
+   50.0,
+   60.0,
+   120.0,
+   240.0,
+   480.0,
+   960.0,
+   1920.0,
+   7680.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:request_prefill_time_seconds",
+  "type": "histogram",
+  "help": "Histogram of time spent in PREFILL phase for request.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   0.3,
+   0.5,
+   0.8,
+   1.0,
+   1.5,
+   2.0,
+   2.5,
+   5.0,
+   10.0,
+   15.0,
+   20.0,
+   30.0,
+   40.0,
+   50.0,
+   60.0,
+   120.0,
+   240.0,
+   480.0,
+   960.0,
+   1920.0,
+   7680.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:request_decode_time_seconds",
+  "type": "histogram",
+  "help": "Histogram of time spent in DECODE phase for request.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   0.3,
+   0.5,
+   0.8,
+   1.0,
+   1.5,
+   2.0,
+   2.5,
+   5.0,
+   10.0,
+   15.0,
+   20.0,
+   30.0,
+   40.0,
+   50.0,
+   60.0,
+   120.0,
+   240.0,
+   480.0,
+   960.0,
+   1920.0,
+   7680.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:request_num_preemptions",
+  "type": "histogram",
+  "help": "Histogram of the number of times a request was preempted.",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   1.0,
+   2.0,
+   3.0,
+   4.0,
+   5.0,
+   10.0,
+   20.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:request_prefill_kv_computed_tokens",
+  "type": "histogram",
+  "help": "Histogram of new KV tokens computed during prefill (excluding cached tokens).",
+  "labelnames": [
+   "engine",
+   "model_name"
+  ],
+  "buckets": [
+   1.0,
+   2.0,
+   5.0,
+   10.0,
+   20.0,
+   50.0,
+   100.0,
+   200.0,
+   500.0,
+   1000.0,
+   2000.0
+  ],
+  "children": [
+   [
+    "0",
+    "Qwen/Qwen2.5-0.5B-Instruct"
+   ]
+  ]
+ },
+ {
+  "name": "vllm:cache_config_info",
+  "type": "gauge",
+  "help": "Information of the LLMEngine CacheConfig",
+  "labelnames": [
+   "_block_size_resolved",
+   "block_size",
+   "cache_dtype",
+   "effective_attention_block_size",
+   "enable_mamba_shared_prefix_checkpoint",
+   "enable_prefix_caching",
+   "engine",
+   "gpu_memory_utilization",
+   "is_attention_free",
+   "kv_cache_dtype_skip_layers",
+   "kv_cache_layout",
+   "kv_cache_max_concurrency",
+   "kv_cache_memory_bytes",
+   "kv_cache_size_tokens",
+   "kv_offloading_backend",
+   "kv_offloading_size",
+   "kv_sharing_fast_prefill",
+   "mamba_block_size",
+   "mamba_cache_dtype",
+   "mamba_cache_mode",
+   "mamba_page_size_padded",
+   "mamba_ssm_cache_dtype",
+   "num_cpu_blocks",
+   "num_gpu_blocks",
+   "num_gpu_blocks_override",
+   "prefix_cache_retention_interval",
+   "prefix_caching_hash_algo",
+   "prefix_match_unit",
+   "replayssm_buffer_len",
+   "skip_page_size_padded",
+   "sliding_window",
+   "swa_bounded_replay",
+   "use_kda_recoverssm",
+   "use_replayssm",
+   "user_specified_block_size",
+   "user_specified_mamba_block_size"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "True",
+    "128",
+    "auto",
+    "128",
+    "False",
+    "True",
+    "0",
+    "0.92",
+    "False",
+    "[]",
+    "None",
+    "21.3125",
+    "1073741824",
+    "43648",
+    "native",
+    "None",
+    "False",
+    "None",
+    "auto",
+    "none",
+    "None",
+    "auto",
+    "None",
+    "341",
+    "None",
+    "0",
+    "sha256",
+    "None",
+    "16",
+    "None",
+    "None",
+    "True",
+    "False",
+    "False",
+    "False",
+    "False"
+   ]
+  ]
+ },
+ {
+  "name": "http_requests",
+  "type": "counter",
+  "help": "Total number of requests by method, status and handler.",
+  "labelnames": [
+   "handler",
+   "method",
+   "status"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "/v1/chat/completions",
+    "POST",
+    "2xx"
+   ]
+  ]
+ },
+ {
+  "name": "http_request_size_bytes",
+  "type": "summary",
+  "help": "Content length of incoming requests by handler. Only value of header is respected. Otherwise ignored. No percentile calculated. ",
+  "labelnames": [
+   "handler"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "/v1/chat/completions"
+   ]
+  ]
+ },
+ {
+  "name": "http_response_size_bytes",
+  "type": "summary",
+  "help": "Content length of outgoing responses by handler. Only value of header is respected. Otherwise ignored. No percentile calculated. ",
+  "labelnames": [
+   "handler"
+  ],
+  "buckets": [],
+  "children": [
+   [
+    "/v1/chat/completions"
+   ]
+  ]
+ },
+ {
+  "name": "http_request_duration_highr_seconds",
+  "type": "histogram",
+  "help": "Latency with many buckets but no API specific labels. Made for more accurate percentile calculations. ",
+  "labelnames": [],
+  "buckets": [
+   0.01,
+   0.025,
+   0.05,
+   0.075,
+   0.1,
+   0.25,
+   0.5,
+   0.75,
+   1.0,
+   1.5,
+   2.0,
+   2.5,
+   3.0,
+   3.5,
+   4.0,
+   4.5,
+   5.0,
+   7.5,
+   10.0,
+   30.0,
+   60.0
+  ],
+  "children": [
+   []
+  ]
+ },
+ {
+  "name": "http_request_duration_seconds",
+  "type": "histogram",
+  "help": "Latency with only few buckets by handler. Made to be only used if aggregation by handler is important. ",
+  "labelnames": [
+   "handler",
+   "method"
+  ],
+  "buckets": [
+   0.1,
+   0.5,
+   1.0
+  ],
+  "children": [
+   [
+    "/v1/chat/completions",
+    "POST"
+   ]
+  ]
+ }
+]

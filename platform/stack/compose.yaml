@@ -1,0 +1,533 @@
+# Base stack for the AI-infra course. Do not copy this file into modules:
+# drive it with platform/stack.sh and override config dirs via env vars (see README.md).
+name: aiinfra
+
+x-common: &common
+  restart: unless-stopped
+  pull_policy: never
+  networks: [aiinfra]
+  labels:
+    course: aiinfra
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+x-llama: &llama
+  <<: *common
+  image: ${LLAMACPP_IMAGE}
+  profiles: [llm]
+  volumes:
+    - ${AIINFRA_CACHE}/models:/models:ro
+  healthcheck:
+    test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+    interval: 5s
+    timeout: 3s
+    retries: 20
+    start_period: 5s
+
+x-litellm: &litellm
+  <<: *common
+  image: ${LITELLM_IMAGE}
+  environment: &litellm-env
+    DATABASE_URL: postgresql://llm:llm@postgres:5432/litellm
+    LITELLM_MASTER_KEY: sk-aiinfra-master
+    LITELLM_SALT_KEY: sk-aiinfra-salt
+    # Langfuse wiring (inactive until a module enables the callback in its config):
+    LANGFUSE_PUBLIC_KEY: pk-lf-aiinfra
+    LANGFUSE_SECRET_KEY: sk-lf-aiinfra
+    LANGFUSE_HOST: http://langfuse-web:3000
+  volumes:
+    - ${LITELLM_CONFIG_DIR:-./config/litellm}:/app/config:ro
+  command: ["--config", "/app/config/config.yaml", "--port", "4000"]
+  mem_limit: 1536m
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=3)"]
+    interval: 5s
+    timeout: 4s
+    retries: 30
+    start_period: 20s
+
+x-langfuse-env: &langfuse-env
+  DATABASE_URL: postgresql://lf:lf@langfuse-postgres:5432/langfuse
+  SALT: aiinfra-salt
+  ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000001"
+  NEXTAUTH_SECRET: aiinfra-nextauth
+  NEXTAUTH_URL: http://localhost:18060
+  TELEMETRY_ENABLED: "false"
+  CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+  CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+  CLICKHOUSE_USER: ch
+  CLICKHOUSE_PASSWORD: chpw
+  CLICKHOUSE_CLUSTER_ENABLED: "false"
+  REDIS_HOST: langfuse-redis
+  REDIS_AUTH: redispw
+  LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+  LANGFUSE_S3_EVENT_UPLOAD_REGION: us-east-1
+  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: rwkey
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: rwsecret123
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-s3:8333
+  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+  LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
+  LANGFUSE_S3_MEDIA_UPLOAD_REGION: us-east-1
+  LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: rwkey
+  LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: rwsecret123
+  LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://langfuse-s3:8333
+  LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+
+x-mock-health: &mock-health
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+  interval: 3s
+  timeout: 3s
+  retries: 20
+  start_period: 3s
+
+services:
+  # ------------------------------------------------------------------- gw
+  postgres:
+    <<: *common
+    image: ${PGVECTOR_IMAGE}
+    profiles: [gw]
+    environment: { POSTGRES_USER: llm, POSTGRES_PASSWORD: llm, POSTGRES_DB: litellm }
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    ports: [127.0.0.1:18054:5432]
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U llm -d litellm"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  valkey:
+    <<: *common
+    image: ${VALKEY_IMAGE}
+    profiles: [gw]
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    ports: [127.0.0.1:18063:6379]
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  litellm:
+    <<: *litellm
+    profiles: [gw]
+    depends_on:
+      postgres: { condition: service_healthy }
+      valkey: { condition: service_healthy }
+    ports:
+      - 127.0.0.1:18040:4000
+      - ${TAILSCALE_IP:-100.127.87.65}:18040:4000
+
+  # Optional second replica (profile gw2, used together with gw) for global-limit / HA labs.
+  litellm-2:
+    <<: *litellm
+    profiles: [gw2]
+    environment:
+      <<: *litellm-env
+      DISABLE_SCHEMA_UPDATE: "true"   # schema is migrated by the primary replica
+    ports: [127.0.0.1:18041:4000]
+
+  # ------------------------------------------------------------------ llm
+  llama-chat:
+    <<: *llama
+    command: ["-m", "/models/${LLAMA_CHAT_MODEL:-qwen2.5-0.5b-instruct-q4_k_m.gguf}", "--host", "0.0.0.0", "--port", "8080",
+              "--metrics", "--jinja", "-c", "4096", "-np", "2", "-t", "4", "--alias", "chat"]
+    ports: [127.0.0.1:18011:8080]
+    mem_limit: 1536m
+
+  llama-coder:
+    <<: *llama
+    command: ["-m", "/models/${LLAMA_CODER_MODEL:-Qwen2.5-Coder-0.5B-Q8_0.gguf}", "--host", "0.0.0.0", "--port", "8080",
+              "--metrics", "-c", "4096", "-np", "1", "-t", "2", "--alias", "coder"]
+    ports: [127.0.0.1:18012:8080]
+    mem_limit: 1536m
+
+  llama-embed:
+    <<: *llama
+    command: ["-m", "/models/${LLAMA_EMBED_MODEL:-bge-small-en-v1.5-q8_0.gguf}", "--host", "0.0.0.0", "--port", "8080",
+              "--metrics", "--embeddings", "--pooling", "cls", "-c", "512", "-b", "512", "-ub", "512", "-t", "2", "--alias", "embed"]
+    ports: [127.0.0.1:18013:8080]
+    mem_limit: 768m
+
+  # ----------------------------------------------------------------- mock
+  # Simulated services (image aiinfra-mock:1.0, contract in mock/README.md). restart "no" on
+  # mock-vllm: a startup-config failure must stay visible (exit code, logs) like real vLLM.
+  mock-vllm-a:
+    <<: *common
+    restart: "no"
+    image: ${MOCK_IMAGE}
+    profiles: [mock]
+    command: ["vllm"]
+    volumes: ["${MOCK_VLLM_A_CONFIG_DIR:-./config/mock-vllm-a}:/config:ro"]
+    ports: [127.0.0.1:18021:8000]
+    mem_limit: 256m
+    healthcheck: *mock-health
+
+  mock-vllm-b:
+    <<: *common
+    restart: "no"
+    image: ${MOCK_IMAGE}
+    profiles: [mock]
+    command: ["vllm"]
+    volumes: ["${MOCK_VLLM_B_CONFIG_DIR:-./config/mock-vllm-b}:/config:ro"]
+    ports: [127.0.0.1:18022:8000]
+    mem_limit: 256m
+    healthcheck: *mock-health
+
+  mock-dcgm-a:
+    <<: *common
+    image: ${MOCK_IMAGE}
+    profiles: [mock]
+    command: ["dcgm"]
+    environment: { MOCK_NODE: a }
+    volumes: ["${MOCK_DCGM_A_CONFIG_DIR:-${MOCK_DCGM_CONFIG_DIR:-./config/mock-dcgm-a}}:/config:ro"]
+    ports: [127.0.0.1:18031:8000]
+    mem_limit: 128m
+    healthcheck: *mock-health
+
+  mock-dcgm-b:
+    <<: *common
+    image: ${MOCK_IMAGE}
+    profiles: [mock]
+    command: ["dcgm"]
+    environment: { MOCK_NODE: b }
+    volumes: ["${MOCK_DCGM_B_CONFIG_DIR:-${MOCK_DCGM_CONFIG_DIR:-./config/mock-dcgm-b}}:/config:ro"]
+    ports: [127.0.0.1:18032:8000]
+    mem_limit: 128m
+    healthcheck: *mock-health
+
+  # ------------------------------------------------------------------ obs
+  prometheus:
+    <<: *common
+    image: ${PROMETHEUS_IMAGE}
+    profiles: [obs]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROM_RETENTION:-3d}
+      - --web.enable-lifecycle
+    volumes:
+      - ${PROM_CONFIG_DIR:-./config/prometheus}:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    ports:
+      - 127.0.0.1:18090:9090
+      - ${TAILSCALE_IP:-100.127.87.65}:18090:9090
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  grafana:
+    <<: *common
+    image: ${GRAFANA_IMAGE}
+    profiles: [obs]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_LOG_LEVEL: warn
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    volumes:
+      - ${GRAFANA_PROVISIONING_DIR:-./config/grafana/provisioning}:/etc/grafana/provisioning:ro
+      - ${GRAFANA_DASHBOARDS_DIR:-./config/grafana/dashboards}:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - 127.0.0.1:18030:3000
+      - ${TAILSCALE_IP:-100.127.87.65}:18030:3000
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ------------------------------------------------------------------- ui
+  open-webui:
+    <<: *common
+    image: ${OPENWEBUI_IMAGE}
+    profiles: [ui]
+    # Names outside the compose network resolve to the tripwire sink (air-gap proof); service
+    # names still resolve through Docker's embedded DNS.
+    dns: ["172.29.230.2"]
+    environment:
+      WEBUI_SECRET_KEY: aiinfra-webui-secret
+      WEBUI_ADMIN_EMAIL: admin@aiinfra.local
+      WEBUI_ADMIN_PASSWORD: Admin-pass-1
+      WEBUI_ADMIN_NAME: Course Admin
+      ENABLE_SIGNUP: "false"
+      OFFLINE_MODE: "true"
+      HF_HUB_OFFLINE: "1"
+      ENABLE_OLLAMA_API: "false"
+      ENABLE_VERSION_UPDATE_CHECK: "false"
+      ENABLE_OPENAI_API: "true"
+      OPENAI_API_BASE_URLS: http://litellm:4000/v1
+      OPENAI_API_KEYS: sk-aiinfra-master
+      RAG_EMBEDDING_ENGINE: openai
+      RAG_OPENAI_API_BASE_URL: http://litellm:4000/v1
+      RAG_OPENAI_API_KEY: sk-aiinfra-master
+      RAG_EMBEDDING_MODEL: embed
+    volumes: [openwebui-data:/app/backend/data]
+    ports:
+      - 127.0.0.1:18080:8080
+      - ${TAILSCALE_IP:-100.127.87.65}:18080:8080
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 4s
+      retries: 40
+      start_period: 30s
+
+  # ------------------------------------------------------------------ rag
+  qdrant:
+    <<: *common
+    image: ${QDRANT_IMAGE}
+    profiles: [rag]
+    volumes: [qdrant-data:/qdrant/storage]
+    ports: [127.0.0.1:18033:6333]
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/6333 && printf 'GET /readyz HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ---------------------------------------------------------------- store
+  seaweedfs:
+    <<: *common
+    image: ${SEAWEEDFS_IMAGE}
+    profiles: [store]
+    command: ["server", "-dir=/data", "-s3", "-s3.config=/etc/seaweedfs/s3.json", "-master.volumeSizeLimitMB=128", "-volume.max=8"]
+    volumes:
+      - ${SEAWEEDFS_CONFIG_DIR:-./config/seaweedfs}:/etc/seaweedfs:ro
+      - seaweedfs-data:/data
+    ports: [127.0.0.1:18070:8333]
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9333/cluster/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  registry:
+    <<: *common
+    image: ${REGISTRY_IMAGE}
+    profiles: [store]
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes: [registry-data:/var/lib/registry]
+    ports: [127.0.0.1:18050:5000]
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5000/v2/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # HF-Hub-compatible mirror served from the local HF cache (role of the mock image; a real service).
+  hf-mirror:
+    <<: *common
+    image: ${MOCK_IMAGE}
+    profiles: [store]
+    command: ["hf-mirror"]
+    environment:
+      HF_CACHE: /hf
+      HF_HUB_CACHE: /hf
+    volumes: ["${AIINFRA_CACHE}/hf/hub:/hf:ro"]
+    ports: [127.0.0.1:18071:8000]
+    mem_limit: 256m
+    healthcheck: *mock-health
+
+  # Air-gap tripwire: dnsmasq resolves every name to its own sink IP and logs the queries;
+  # GET /hits (host 127.0.0.1:18072) is the counter. DNS server of the internal network aiinfra-airgap.
+  tripwire:
+    <<: *common
+    image: ${TRIPWIRE_IMAGE}
+    profiles: [store]
+    environment:
+      TRIPWIRE_SINK_IP: 172.29.231.2
+      TRIPWIRE_IP: 172.29.231.2
+    networks:
+      aiinfra: { ipv4_address: 172.29.230.2 }
+      aiinfra-airgap: { ipv4_address: 172.29.231.2 }
+    ports: [127.0.0.1:18072:8000]
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/hits', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 3s
+
+  # ------------------------------------------------------------------- lf
+  langfuse-postgres:
+    <<: *common
+    image: ${PGVECTOR_IMAGE}
+    profiles: [lf]
+    environment: { POSTGRES_USER: lf, POSTGRES_PASSWORD: lf, POSTGRES_DB: langfuse }
+    volumes: [langfuse-postgres-data:/var/lib/postgresql/data]
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lf -d langfuse"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  langfuse-clickhouse:
+    <<: *common
+    image: ${CLICKHOUSE_IMAGE}
+    profiles: [lf]
+    environment: { CLICKHOUSE_USER: ch, CLICKHOUSE_PASSWORD: chpw, CLICKHOUSE_DB: default }
+    volumes: [langfuse-clickhouse-data:/var/lib/clickhouse]
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8123/ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  langfuse-redis:
+    <<: *common
+    image: ${VALKEY_IMAGE}
+    profiles: [lf]
+    command: ["valkey-server", "--requirepass", "redispw", "--maxmemory-policy", "noeviction", "--save", "", "--appendonly", "no"]
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a redispw ping | grep -q PONG"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  langfuse-s3:
+    <<: *common
+    image: ${SEAWEEDFS_IMAGE}
+    profiles: [lf]
+    command: ["server", "-dir=/data", "-s3", "-s3.config=/etc/seaweedfs/s3.json", "-master.volumeSizeLimitMB=128", "-volume.max=8"]
+    volumes:
+      - ./config/seaweedfs:/etc/seaweedfs:ro
+      - langfuse-s3-data:/data
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9333/cluster/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  langfuse-s3-init:
+    <<: *common
+    restart: "no"
+    image: ${SEAWEEDFS_IMAGE}
+    profiles: [lf]
+    entrypoint: ["sh", "-c", "for i in $$(seq 1 60); do echo 's3.bucket.create -name langfuse' | weed shell -master=langfuse-s3:9333 2>&1 | grep -qiE 'error|fail' || exit 0; sleep 2; done; exit 1"]
+    depends_on:
+      langfuse-s3: { condition: service_healthy }
+    mem_limit: 128m
+
+  langfuse-worker:
+    <<: *common
+    image: ${LANGFUSE_WORKER_IMAGE}
+    profiles: [lf]
+    environment: *langfuse-env
+    depends_on:
+      langfuse-postgres: { condition: service_healthy }
+      langfuse-clickhouse: { condition: service_healthy }
+      langfuse-redis: { condition: service_healthy }
+      langfuse-s3-init: { condition: service_completed_successfully }
+    mem_limit: 1g
+
+  langfuse-web:
+    <<: *common
+    image: ${LANGFUSE_WEB_IMAGE}
+    profiles: [lf]
+    environment:
+      <<: *langfuse-env
+      LANGFUSE_INIT_ORG_ID: aiinfra
+      LANGFUSE_INIT_ORG_NAME: aiinfra
+      LANGFUSE_INIT_PROJECT_ID: aiinfra
+      LANGFUSE_INIT_PROJECT_NAME: aiinfra
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: pk-lf-aiinfra
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: sk-lf-aiinfra
+      LANGFUSE_INIT_USER_EMAIL: admin@aiinfra.local
+      LANGFUSE_INIT_USER_NAME: admin
+      LANGFUSE_INIT_USER_PASSWORD: Admin-pass-1
+    depends_on:
+      langfuse-postgres: { condition: service_healthy }
+      langfuse-clickhouse: { condition: service_healthy }
+      langfuse-redis: { condition: service_healthy }
+      langfuse-s3-init: { condition: service_completed_successfully }
+    ports:
+      - 127.0.0.1:18060:3000
+      - ${TAILSCALE_IP:-100.127.87.65}:18060:3000
+    mem_limit: 1536m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/public/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+      start_period: 15s
+
+  # ----------------------------------------------------------------- vllm
+  # Real vLLM-CPU v0.31.0, fp32, alone on the host (never with llm/lf/kind). Non-root; model from
+  # the local HF cache (offline). WP0: ~6 GB RSS, healthy in 3-4 min, ~10 tok/s.
+  vllm-cpu:
+    <<: *common
+    restart: "no"
+    image: ${VLLM_CPU_IMAGE}
+    profiles: [vllm]
+    user: "${AIINFRA_UID:-1000}:${AIINFRA_GID:-1000}"
+    command: ["--model", "Qwen/Qwen2.5-0.5B-Instruct", "--served-model-name", "chat", "--dtype", "float32",
+              "--max-model-len", "2048", "--max-num-seqs", "4", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      HF_HOME: /hf
+      HF_HUB_OFFLINE: "1"
+      HOME: /home/vllm
+      XDG_CACHE_HOME: /home/vllm/.cache
+      VLLM_CPU_KVCACHE_SPACE: "1"
+      VLLM_NO_USAGE_STATS: "1"
+      DO_NOT_TRACK: "1"
+    volumes:
+      - ${AIINFRA_CACHE}/hf:/hf
+      - ${AIINFRA_CACHE}/vllm-home:/home/vllm
+    security_opt: ["seccomp=unconfined"]
+    cap_add: [SYS_NICE]
+    shm_size: 2g
+    ports: [127.0.0.1:18023:8000]
+    mem_limit: 7g
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
+
+networks:
+  aiinfra:
+    name: aiinfra
+    labels: { course: aiinfra }
+    ipam: { config: [{ subnet: 172.29.230.0/24 }] }
+  aiinfra-airgap:
+    name: aiinfra-airgap
+    internal: true
+    labels: { course: aiinfra }
+    ipam: { config: [{ subnet: 172.29.231.0/24 }] }
+
+volumes:
+  postgres-data: { labels: { course: aiinfra } }
+  prometheus-data: { labels: { course: aiinfra } }
+  grafana-data: { labels: { course: aiinfra } }
+  openwebui-data: { labels: { course: aiinfra } }
+  qdrant-data: { labels: { course: aiinfra } }
+  seaweedfs-data: { labels: { course: aiinfra } }
+  registry-data: { labels: { course: aiinfra } }
+  langfuse-postgres-data: { labels: { course: aiinfra } }
+  langfuse-clickhouse-data: { labels: { course: aiinfra } }
+  langfuse-s3-data: { labels: { course: aiinfra } }
