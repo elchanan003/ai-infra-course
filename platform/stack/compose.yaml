@@ -423,7 +423,7 @@ services:
     restart: "no"
     image: ${SEAWEEDFS_IMAGE}
     profiles: [lf]
-    entrypoint: ["sh", "-c", "for i in $$(seq 1 60); do echo 's3.bucket.create -name langfuse' | weed shell -master=langfuse-s3:9333 2>&1 | grep -qiE 'error|fail' || exit 0; sleep 2; done; exit 1"]
+    entrypoint: ["sh", "-c", "for i in $$(seq 1 60); do o=$$(echo 's3.bucket.create -name langfuse' | weed shell -master=langfuse-s3:9333 2>&1); echo \"$$o\" | grep -qi 'already exists' && exit 0; echo \"$$o\" | grep -qiE 'error|fail' || exit 0; sleep 2; done; exit 1"]
     depends_on:
       langfuse-s3: { condition: service_healthy }
     mem_limit: 128m
