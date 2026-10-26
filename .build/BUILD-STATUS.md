@@ -11,9 +11,12 @@ Lab tests must hold the lock: flock -w 1800 /tmp/aiinfra-course-lab.lock -c '...
 | WP1 | core docs (README, CLAUDE.md+symlinks, PROGRESS, SYLLABUS, CONVENTIONS) | done (TBD-WP0 version placeholders + TBD-WP2 lib signatures to fill later); total 45 h |
 | WP2 | platform (versions.env, setup, stack, lib, doctor, k8s, lab-session.sh) | running (Sonnet) |
 | WP3 | mock (mock-vllm, mock-chat, mock-dcgm, nvidia-smi, hf-mirror, tripwire) | running (Sonnet, parallel to WP2; interface fixed in decisions.md) |
-| WP4-A | 00, 01, 02 | todo |
-| WP4-B | 03, 08 + cheatsheets | todo |
-| WP4-C | 04, 05, 06 | todo |
-| WP4-D | 07, 09 | todo |
-| WP4-E | 10, 11 | todo |
+| WP4-A | 00, 01, 02 | phase 1 running (theory/quiz/answers/draft lab.md); phase 2 (harness+validation) after WP2+WP3 gates |
+| WP4-B | 03, 08 + cheatsheets | phase 1 running (theory/quiz/answers/draft lab.md); phase 2 (harness+validation) after WP2+WP3 gates |
+| WP4-C | 04, 05, 06 | phase 1 running (theory/quiz/answers/draft lab.md); phase 2 (harness+validation) after WP2+WP3 gates |
+| WP4-D | 07, 09 | phase 1 running (theory/quiz/answers/draft lab.md); phase 2 (harness+validation) after WP2+WP3 gates |
+| WP4-E | 10, 11 | phase 1 running (theory/quiz/answers/draft lab.md); phase 2 (harness+validation) after WP2+WP3 gates |
 | WP5 | final validation, offline pass, teardown, commit | todo |
+
+Phases: authors are launched in 2 phases; phase 2 is triggered by the coordinator via SendMessage (or a new agent with finish-prefix.md if the original is gone). E phase 2 only after 03/04/05/09 validated.
+Shared author docs: .build/author-brief.md, .build/finish-prefix.md. Validator: .build/validate-module.sh (WP2).
