@@ -21,3 +21,16 @@ Pins: `.build/versions.proposed.env` → becomes `platform/versions.env` (WP2). 
 - mock-dcgm config `/config/gpus.yaml` (nodes/GPUs); one container per simulated node (A, B).
 - tripwire: `mock/tripwire/Dockerfile` → image `aiinfra-tripwire:1.0` (dnsmasq + tiny HTTP sink + `GET /hits` JSON counter on port 8000; also `DELETE /hits`). Static IP on both `aiinfra` and `aiinfra-airgap` networks; is the DNS server of `aiinfra-airgap`.
 - `platform/stack.sh build` builds both images (WP2 calls `docker build mock/` and `mock/tripwire/`).
+
+## Module-owned container ports (127.0.0.1 only; containers named aiinfra-labNN-*, label course=aiinfra + module=NN)
+| range | owner |
+|---|---|
+| 18041 | 2nd LiteLLM replica (modules 04, 05, capstone) |
+| 18120-18124 | module 01 |
+| 18125-18129 | module 02 |
+| 18130-18134 | module 07 (MCP server, sandbox runner) |
+| 18135-18139 | module 06 |
+| 18140-18144 | capstone 10 |
+| 18145-18149 | spare |
+| 18150-18199 | WP3/mock tests only (never in course labs) |
+Theory length: each theory.md must reach ≥400 lines of real depth (production practice, numbers, failure modes, worked examples) in phase 2 — no padding.

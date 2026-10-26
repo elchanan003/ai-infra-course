@@ -1,0 +1,5 @@
+#!/bin/sh
+# fake dmesg: only the NVRM Xid lines of the simulated GPUs (mock-dcgm containers)
+exec python3 -c "
+import os,urllib.request
+print(urllib.request.urlopen('http://127.0.0.1:%s/admin/xid-log'%os.environ.get('MOCK_PORT','8000')).read().decode(),end='')"

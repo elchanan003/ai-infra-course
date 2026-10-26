@@ -58,8 +58,9 @@ step_tools() {
     log "installing oras $ORAS_VERSION"
     tmp=$(mktemp -d); curl -fsSL "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz" | tar -xz -C "$tmp" \
       && install -m755 "$tmp/oras" "$BIN/oras" || warn "oras download"; rm -rf "$tmp"; fi
-  for t in kind kubectl helm kubeconform oras; do
+  for t in kind kubectl helm oras; do
     command -v $t >/dev/null && log "$t: $($t version 2>&1 | head -1 | cut -c1-60)" || log "$t: MISSING"; done
+  command -v kubeconform >/dev/null && log "kubeconform: $(kubeconform -v 2>&1 | head -1)" || log "kubeconform: MISSING"
 }
 
 step_models() {
