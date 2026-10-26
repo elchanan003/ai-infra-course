@@ -1,0 +1,16 @@
+# Lab 04 — LiteLLM config (yours). Mounted read-only at /app/config/config.yaml; restart the gateway after edits:
+#   ../../platform/stack.sh compose restart litellm
+#
+# TODO 4.1: model_list with aliases chat, embed, coder (openai/ prefix, container-DNS api_base, stable model_info.id, prices)
+# TODO 4.1: general_settings: database_url (from the environment) so keys can be created
+# TODO 4.5: make rate limits global across replicas (shared Valkey: host valkey, port 6379)
+
+model_list: []
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  proxy_batch_write_at: 5          # lab-only (default 10 s)
+
+litellm_settings:
+  callbacks: ["prometheus"]
+  require_auth_for_metrics_endpoint: false   # lab-only

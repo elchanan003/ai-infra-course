@@ -8,8 +8,8 @@ Lab tests must hold the lock: flock -w 1800 /tmp/aiinfra-course-lab.lock -c '...
 | WP | Part | Status |
 |---|---|---|
 | WP0 | feasibility spike → .build/wp0-report.md, versions.proposed.env | done: .build/wp0-report.md, versions.proposed.env; decisions in .build/decisions.md (binding) |
-| WP1 | core docs (README, CLAUDE.md+symlinks, PROGRESS, SYLLABUS, CONVENTIONS) | done (TBD-WP0 version placeholders + TBD-WP2 lib signatures to fill later); total 45 h |
-| WP2 | platform (versions.env, setup, stack, lib, doctor, k8s, lab-session.sh, validate-module.sh) | running — resumed after rate-limit cut (lf profile s3-init failure under investigation) |
+| WP1 | core docs (README, CLAUDE.md+symlinks, PROGRESS, SYLLABUS, CONVENTIONS) | done (placeholders filled by WP2); total 45 h |
+| WP2 | platform (versions.env, setup, stack, lib, doctor, k8s, lab-session.sh, validate-module.sh) | done (gate .build/gates/WP2.done). Untested: gw2 replica (18041) → modules 04/05 validate it; k8s.sh fake-gpu (optional) |
 | WP3 | mock (mock-vllm, mock-chat, mock-dcgm, nvidia-smi, hf-mirror, tripwire) | done (gate .build/gates/WP3.done); contract mock/README.md; tests mock/tests/run_tests.sh |
 | WP4-A | 00, 01, 02 | phase 2 running (coordinator's agent): content now; container tests after gates/WP2.done |
 | WP4-B | 03, 08 + cheatsheets | phase 2 running (coordinator's agent): content now; container tests after gates/WP2.done |
@@ -29,3 +29,10 @@ Shared author docs: .build/author-brief.md, .build/finish-prefix.md. Validator: 
 - D (07, 09): phase 1 done (07 theory 419, 09 theory 335 → deepen to ≥400 in phase 2). Assumes kind workers gpu-node-a (2 GPU) / gpu-node-b (1 GPU) via k8s.sh gpu-patch topology; SANDBOX_IMAGE pin; mock-chat pattern lookup_ticket (module may ship its own script.yaml); resolve all "(TBC)" against real READMEs.
 - C (04, 05, 06): phase 1 done (theory 267/203/220 → deepen each to ≥400 with production depth, not padding). Phase-2 needs from WP2/WP3: litellm restart verb, LITELLM_CONFIG_DIR → lab/, 2nd replica :18041, per-backend /admin/stats peak concurrency, mock-chat Aider+FIM patterns, max_input_tokens groups, agent/coder aliases; design 4.8 (client network isolation); measure cooldown/fallback live in 5.3.
 - A (00, 01, 02): phase 1 done (theory 209/221/142 → deepen; 02 especially). Lab port ranges assigned in decisions.md. Needs: hf-mirror serving a synthetic sharded repo at a pinned commit, SHA256SUMS bundle, prepare-generated pickle files with canary.
+
+## Platform facts for authors (WP2 report)
+- `stack.sh up` exits 1 if a container exited non-zero → prepare scripts that plant a mock-vllm startup refusal set STACK_ALLOW_EXITED=1.
+- Tripwire static IPs: 172.29.230.2 (aiinfra), 172.29.231.2 (aiinfra-airgap = TRIPWIRE_IP); /hits = flat {host: n}.
+- HF cache: ~/.cache/aiinfra-course/hf/hub; hf-mirror mounts hf/ at /data ro.
+- mock/tests/run_tests.sh takes its own flock → never run inside lab-session.sh.
+- validate-module.sh strips [PRE]/[WARN]/[INFO]/`~` lines, ISO timestamps, nonce-<hex>; env MODULES_DIR, EVIDENCE_DIR, KEEP_LAB=1.

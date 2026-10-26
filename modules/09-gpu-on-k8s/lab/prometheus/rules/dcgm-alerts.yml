@@ -1,0 +1,4 @@
+# Task 9.2 - write four alert rules (GpuXidError, GpuTooHot, GpuEccUncorrected, GpuMemoryLeak).
+# Keep Hostname, gpu and UUID on every alert. See lab.md for the conditions.
+# Validate: promtool check rules (see platform/lib.sh promtool_check)
+groups: []

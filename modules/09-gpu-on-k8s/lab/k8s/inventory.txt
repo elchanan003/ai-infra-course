@@ -1,0 +1,4 @@
+# Given (task 9.4). One line per GPU node of the kind cluster:  <node> <gpu count> <GFD product label value> <memory MiB>
+# SIMULATED: in production the device plugin and GPU Feature Discovery learn these from the driver.
+aiinfra-worker  2 NVIDIA-A100-SXM4-80GB 81920
+aiinfra-worker2 1 NVIDIA-L4             23034

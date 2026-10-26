@@ -1,0 +1,2 @@
+# Task 9.6 - ConfigMap time-slicing-config (namespace gpu-lab) with one device-plugin config named "any".
+# Validated, not exercised: kind has no device plugin.

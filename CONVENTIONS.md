@@ -3,7 +3,7 @@
 Read this fully before creating or editing any course file. The learner never needs this file; the tutor rarely does.
 
 ## 1. Host facts
-- Host is **arm64** (Neoverse-N1: NEON+dotprod, no bf16/i8mm/SVE), 4 vCPU, 23 GB RAM (~15 GB free), **no GPU**, ~133 GB free disk. Every image must be multi-arch. Use only images pinned in `platform/versions.env` (tags + digests; `TBD-WP0` until frozen). Adding an image → `docker manifest inspect <img> | grep arm64` and add it to versions.env.
+- Host is **arm64** (Neoverse-N1: NEON+dotprod, no bf16/i8mm/SVE), 4 vCPU, 23 GB RAM (~15 GB free), **no GPU**, ~133 GB free disk. Every image must be multi-arch. Use only images pinned in `platform/versions.env` (tags + digests, frozen in WP0/WP2). Adding an image → `docker manifest inspect <img> | grep arm64` and add it to versions.env.
 - Pre-existing, NOT course-owned: `rakazo-*`, `cli-proxy-api`, `workout-mongo`, `kali-cli`, the `observability-course` stack. Never stop, remove, or prune them. Never `docker system prune` / `volume prune` / `docker rm` without a `course=aiinfra` label filter. Never change the Docker daemon config.
 - Ports 18000-18199 are reserved for this course; everything else on the host is off limits.
 - CLI tools: `kind`, `kubectl`, `helm`, `uv` in `~/.local/bin`; `kubeconform`, `promtool`, `oras` from `platform/setup.sh`. `jq`, `curl`, `python3` available. Python tooling in `platform/.venv` (huggingface_hub `hf`, openai, mcp, safetensors, picklescan, boto3, qdrant-client).
@@ -12,7 +12,7 @@ Read this fully before creating or editing any course file. The learner never ne
 ## 2. Language and style
 - All files in **English**. The tutor speaks Hebrew; files do not.
 - Theory: dense, precise, practical; internals and pitfalls, "how teams run it". Tables and short code blocks. No fluff, no emojis, no detours.
-- Every claim must be correct for the pinned versions (vLLM 0.32.x, LiteLLM v1.106.x, llama.cpp b<N>, Open WebUI 0.12.x, MCP spec 2026-07-28, huggingface_hub 2.x with `hf` CLI; exact tags `TBD-WP0`). Do not teach `huggingface-cli`, `TRANSFORMERS_OFFLINE` or MinIO as current. Re-check defaults (e.g. `--gpu-memory-utilization` 0.92) on the pinned version.
+- Every claim must be correct for the pinned versions (vLLM v0.31.0 CPU fp32 for the real-engine option, vLLM 0.31/0.32 semantics for mock; LiteLLM v1.106.4; llama.cpp server-b11889; Open WebUI v0.12.4; Langfuse 3.225.14; Qdrant v1.20.0; SeaweedFS 4.51; registry:3; ORAS 1.3.6; kind v0.29.0 / node v1.33.1; Prometheus v3.5.0; Grafana 12.1.1; MCP spec 2026-07-28; huggingface_hub 2.3.0 with `hf` CLI; exact pins + digests in `platform/versions.env`). Do not teach `huggingface-cli`, `TRANSFORMERS_OFFLINE` or MinIO as current. Re-check defaults (e.g. `--gpu-memory-utilization` 0.92) on the pinned version.
 - Honesty: every simulated element is labeled as simulated in theory and lab text, with how production differs. Never imply a real GPU.
 
 ## 3. Port map (host side, 127.0.0.1; UIs also on Tailscale 100.127.87.65)
@@ -87,9 +87,30 @@ Harness rules (non-negotiable; course-harness skill):
 Capstone: `prepare-lab.sh N`, graded N.1-N.5 as in PLAN section 5 (durable fix, live probe, root-cause enum, evidence vs live data, postmortem checker).
 
 ## 8. Shared harness library
-`platform/lib.sh` (source from every script). Signatures TBD-WP2; frozen after WP2 (changes only via the coordinator).
-- Sibling set: `pass ID MSG`, `fail ID MSG`, `blocked ID MSG`, `summary` (prints `SCORE: x/y`, writes `.last-verify` with timestamp+score, exit 0 only if all pass), `wait_http URL TIMEOUT`, `grafana_api PATH`, `prom_query EXPR`, `prom_value EXPR`.
-- New: `litellm_api`, `litellm_flush_wait`, `mock_stats`, `env_kv`, `within`, `tripwire_hits`, `sandbox_run`, `wait_idle`, `promtool_test`, `k` (kubectl --context kind-aiinfra).
+`platform/lib.sh` (source from every script; frozen after WP2, changes only via the coordinator). Full header with semantics in the file. Endpoints overridable via env (`PROM_URL`, `GRAFANA_URL`, `LITELLM_URL`, `LITELLM_KEY`, `MOCK_A_URL`, `MOCK_B_URL`, `TRIPWIRE_URL`, ...); base-stack ports as in section 3.
+| Signature | Meaning |
+|---|---|
+| `pass ID MSG` / `fail ID MSG` / `blocked ID MSG` | print scored lines `[PASS]/[FAIL]/[BLOCKED] ID MSG` |
+| `passed ID` | status 0 iff check ID passed (cascade to BLOCKED) |
+| `warn ID MSG` | unscored `[WARN]` line |
+| `precond DESC CMD...` | run CMD, print unscored `[PRE] DESC: ok|NOT OK`, return CMD's status |
+| `summary` | print `SCORE: x/y`, write `.last-verify` (timestamp+score) in the module dir, exit 0 only if all passed |
+| `wait_http URL [TIMEOUT_S=60]` | poll until 2xx/3xx |
+| `within SECS CMD...` | retry CMD every 1 s until success or timeout (no blind sleeps) |
+| `wait_idle [MAX_BUSY_PCT=60] [TIMEOUT_S=60]` | wait for low host CPU; 1 on timeout (verify prints WARN, refuses to score) |
+| `prom_query EXPR` / `prom_value EXPR` | instant query JSON / first sample value |
+| `grafana_api PATH [curl args]` | Grafana API as admin:admin |
+| `promtool_test TESTFILE` / `promtool_check FILE...` | promtool from the prometheus image (`PROMTOOL_MOUNT=<dir>` to widen the mounted dir) |
+| `litellm_api PATH [curl args]` | gateway API with the master key (or `$LITELLM_KEY`); body out, no `-f` |
+| `litellm_code KEY MODEL [PROMPT]` / `litellm_chat KEY MODEL [PROMPT]` | one chat completion with KEY: HTTP status / body |
+| `litellm_flush_wait [KEY [N=1 [TIMEOUT_S=30]]]` | bounded poll until >=N SpendLogs rows for KEY (or, without args, row count stable 7 s) |
+| `litellm_spend KEY` | spend from `/key/info` |
+| `mock_stats [A|B]` / `mock_fault [A|B] [METHOD] [JSON]` | mock-vllm `/admin/stats` and `/admin/fault` |
+| `tripwire_hits [HOST_REGEX]` / `tripwire_reset` | tripwire counter (all or matching hosts) / reset |
+| `sandbox_run [docker flags] IMAGE [CMD...]` | throwaway container on `aiinfra-airgap` (DNS = tripwire, no route out, caps dropped); needs profile `store` |
+| `env_kv FILE KEY` | value of KEY in an env-style file |
+| `k ...` | `kubectl --context kind-aiinfra ...` |
+Lab lock wrapper: `platform/lab-session.sh <cmd...>` (re-entrant). Module validation: `.build/validate-module.sh NN [args]`.
 ```
 [PASS] 1.2 sizing.py passes hidden case 3
 [FAIL] 1.3 kv_gb ignores kv_heads — revisit GQA

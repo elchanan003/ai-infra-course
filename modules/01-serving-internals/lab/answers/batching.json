@@ -1,0 +1,6 @@
+{
+  "parallel1_tps": -1,
+  "parallel4_tps": -1,
+  "ratio": -1,
+  "why": "TODO (one of: continuous_batching_shares_weight_reads | more_cpu_cores_used | cache_prompt | quantisation)"
+}

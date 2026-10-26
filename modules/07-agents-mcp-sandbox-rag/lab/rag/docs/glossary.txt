@@ -1,0 +1,3 @@
+KV cache: memory a model server keeps per running sequence.
+
+TTFT: time to first token, dominated by queueing and prefill.

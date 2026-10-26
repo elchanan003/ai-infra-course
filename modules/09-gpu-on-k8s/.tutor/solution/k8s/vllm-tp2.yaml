@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-tp2
+  namespace: gpu-lab
+  labels:
+    course: aiinfra
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate            # the model fills the node: old and new pod cannot coexist
+  selector:
+    matchLabels: {app: vllm-tp2}
+  template:
+    metadata:
+      labels: {app: vllm-tp2, course: aiinfra}
+    spec:
+      terminationGracePeriodSeconds: 1
+      nodeSelector:
+        nvidia.com/gpu.product: NVIDIA-A100-SXM4-80GB
+      tolerations:
+        - {key: nvidia.com/gpu, operator: Exists, effect: NoSchedule}
+      containers:
+        - name: vllm
+          image: python:3.12-slim
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - |
+              echo "vllm serve /models/llama-3.1-70b --served-model-name chat --tensor-parallel-size 2"
+              exec sleep 3600
+          resources:
+            limits:
+              nvidia.com/gpu: 2
+          volumeMounts:
+            - {name: shm, mountPath: /dev/shm}
+      volumes:
+        - name: shm
+          emptyDir: {medium: Memory, sizeLimit: 8Gi}

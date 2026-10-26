@@ -103,8 +103,10 @@ step_images() {
     log "pulling $img@${dig:0:19}... (resumable; re-run if interrupted)"
     if docker pull -q "$repo@$dig" >/dev/null && docker tag "$repo@$dig" "$img"; then :; else warn "pull failed: $img"; fi
   done
-  docker image inspect "$PYTHON_IMAGE" >/dev/null 2>&1 && log "image present: $PYTHON_IMAGE" \
-    || { docker pull -q "$PYTHON_IMAGE" >/dev/null || warn "pull failed: $PYTHON_IMAGE"; }
+  for img in "$PYTHON_IMAGE" "$ALPINE_IMAGE"; do   # alpine = tripwire base (build needs it + apk at build time)
+    docker image inspect "$img" >/dev/null 2>&1 && log "image present: $img" \
+      || { docker pull -q "$img" >/dev/null || warn "pull failed: $img"; }
+  done
 }
 
 step_build() {

@@ -1,0 +1,32 @@
+# Scripted mock-chat rules for module 07 (SIMULATION: no model decides anything; see mock/README.md 3.8).
+# Production: a real model with a tool-call parser picks the tool; the loop/MCP/sandbox code is unchanged.
+rules:
+  - name: never-ending                  # a "model" that never stops asking for the tool (step-limit test)
+    match:
+      endpoint: chat
+      has_tool: lookup_ticket
+      any_regex: "NEVERENDING"
+    tool_calls:
+      - {name: lookup_ticket, arguments: {ticket_id: "T-0000"}}
+  - name: two-tools                     # two tool calls in ONE assistant message
+    match:
+      endpoint: chat
+      has_tool: lookup_ticket
+      last_role: user
+      user_regex: "compare (?P<a>[A-Z]+-[0-9]+) and (?P<b>[A-Z]+-[0-9]+)"
+    tool_calls:
+      - {name: lookup_ticket, arguments: {ticket_id: "${a}"}}
+      - {name: lookup_ticket, arguments: {ticket_id: "${b}"}}
+  - name: one-tool
+    match:
+      endpoint: chat
+      has_tool: lookup_ticket
+      last_role: user
+      user_regex: "ticket (?P<id>[A-Z]+-[0-9]+)"
+    tool_calls:
+      - {name: lookup_ticket, arguments: {ticket_id: "${id}"}}
+  - name: answer-from-tool-result
+    match:
+      endpoint: chat
+      last_role: tool
+    content: "Ticket report: {tool_result} (ref {nonce})"

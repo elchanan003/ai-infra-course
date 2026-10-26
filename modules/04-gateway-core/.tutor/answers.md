@@ -23,11 +23,11 @@ Reference files will be in `.tutor/solution/` (phase 2). Draft expectations:
 - 4.1 `model_list` with `openai/<name>` + `api_base: http://<svc>:8080/v1`, `model_info.id`, costs; `general_settings.master_key: os.environ/...`, `database_url: os.environ/DATABASE_URL`. 4.1.4 depends on `database_url`.
 - 4.2 `/key/generate` `{"key_alias":"lab-chat-only","models":["chat"]}`; idempotent = delete by alias (or `/key/delete` with `key_aliases`) before generating. 403 on embed, 401 for garbage.
 - 4.3 `rpm_limit: 2`; second key `tpm_limit` below 2 x tokens-per-response (e.g. 50 with 30-token usage): request 1 and 2 pass, request 3 refused; first passes because TPM is counted after the response. 429 body names `Limit type`.
-- 4.4 `database_url` set; `KEYS_TABLE=LiteLLM_VerificationToken`; `KEY_ROWS` = live `select count(*)` (variant-bound, includes seeded extras and learner keys); `SPENDLOG_PK=request_id`; `LOST_ON_RESTART=rpm_counters` only (keys/spend logs are in Postgres, model_list is re-read from config; un-flushed spend is a caveat, not a category).
+- 4.4 `database_url` set; `KEYS_TABLE=LiteLLM_VerificationToken`; `LEGACY_KEY_ROWS` = live `select count(*)` of `legacy-%` keys (variant-bound); `SPENDLOG_PK=request_id`; `LOST_ON_RESTART=rpm_counters` only (keys/spend logs are in Postgres, model_list is re-read from config; un-flushed spend is a caveat, not a category).
 - 4.5 `litellm_settings: {cache: true, cache_params: {type: redis, host: valkey, port: 6379, supported_call_types: []}}`. Without `supported_call_types: []` identical requests may be served from cache (4.5.4 fails).
 - 4.6 team created with `models:["chat"]`; key created with `team_id`, no key-level models. The team answers the access question.
 - 4.7 team `lab-ds` models lacks `embed`: `/team/update` adding `embed` to the team list (narrowest). Wrong fixes: `models:["*"]` / `all-proxy-models` on key or team (4.7.2 fails: coder reachable), editing the key only.
-- 4.8 direct call from the client network: `refused` (or timeout) ; gateway 200; `K8S_CONTROL=NetworkPolicy`; `BYPASS_LOSES=auth,rate_limits,spend,audit,aliases`.
+- 4.8 `apply.sh` connects the gateway to the client net and disconnects the client from `aiinfra`; direct call: `unresolvable`; gateway 200; CLIENT_TOKEN from `printenv LAB_TOKEN`; `K8S_CONTROL=NetworkPolicy`; `BYPASS_LOSES=auth,rate_limits,spend,audit,aliases`.
 
 ## Common mistakes
 - Forgetting `openai/` prefix or `/v1`; using host-published ports (`localhost:18011`) as `api_base` inside the container network.

@@ -1,0 +1,19 @@
+# Given, BROKEN (task T): copied from a team wiki. `kubectl apply` succeeds and the pod stays Pending.
+# Fix the file; keep pod name, namespace and the one-GPU request.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: broken-gpu
+  namespace: gpu-lab
+  labels:
+    course: aiinfra
+spec:
+  terminationGracePeriodSeconds: 1
+  containers:
+    - name: main
+      image: python:3.12-slim
+      imagePullPolicy: IfNotPresent
+      command: ["sleep", "3600"]
+      resources:
+        limits:
+          nvidia.com/gpus: 1

@@ -1,0 +1,1 @@
+2026-10-26T20:41:54Z WP2 done: all profiles smoke-tested, k8s gpu-patch ok, validate-module.sh dummy PASS, doctor 31 OK (coordinator re-run), 0 course containers. Untested: gw2 replica profile, k8s.sh fake-gpu.

@@ -125,19 +125,21 @@ The **2026-07-28** revision (the one this course pins) moves MCP toward a **stat
 - Clients and servers negotiate the protocol version; during the transition period you will see both. When something fails at connect time, check which revision each side speaks before debugging anything else.
 - Verify any behaviour against the installed SDK (`mcp` 2.3.0 in `platform/.venv`) rather than from memory; the lab tasks tell you where to look (`python -c "import mcp, inspect"` / the package docstrings).
 
-Python SDK shape (names as in the `mcp` package; confirm exact imports for 2.3.0 with `help(mcp.server)` — the high-level `FastMCP`-style server decorates plain functions and derives `inputSchema` from type hints and the docstring):
+Python SDK shape (`mcp` 2.3.0, checked against the pinned SDK: the v1 name `FastMCP` was renamed `MCPServer`, import `from mcp.server.mcpserver import MCPServer`; the high-level server decorates plain functions and derives `inputSchema` from type hints and the docstring):
 
 ```python
-from mcp.server.fastmcp import FastMCP          # check the import path in the installed version
-app = FastMCP("lab-tools")
+from mcp.server.mcpserver import MCPServer
+app = MCPServer("lab-tools")
 
 @app.tool()
 def word_count(text: str) -> int:
     """Count whitespace-separated words."""
     return len(text.split())
 
-app.run(transport="streamable-http")            # serves /mcp
+app.run("streamable-http", host="127.0.0.1", port=18133)   # serves /mcp (streamable_http_path="/mcp")
 ```
+
+A client is `from mcp import Client; async with Client("http://127.0.0.1:18133/mcp") as c: await c.list_tools(); await c.call_tool("word_count", {"text": "a b"})`. Note how errors surface in this SDK: an unknown tool name or invalid arguments come back as a normal `CallToolResult` with `is_error=True` (the model can read the text and retry), while protocol-level failures raise `MCPError`. Check which one you get before writing your own error handling.
 
 The **docstring is the tool description the model reads** and the type hints are the schema. Vague docstrings produce wrong tool choices; a tool named `run` with a one-word description is a bug waiting to happen. Keep tools few (a dozen well-described tools beat 80 vague ones: every schema is re-sent on every step, 80 tools can be 10k+ prompt tokens).
 

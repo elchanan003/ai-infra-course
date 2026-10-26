@@ -1,6 +1,5 @@
 # 04 — Lab: run LiteLLM with keys, teams, limits, durable state, shared Valkey
 
-DRAFT (phase 1). Task ids are final; paths/ports of platform pieces marked (TBD-WP2) are confirmed in phase 2.
 
 Time: ~2 h of work plus ~5 min of waiting for `verify.sh` (it restarts the gateway, bursts requests and waits out a 60 s rate-limit window). Guidance level: guided. Work from `modules/04-gateway-core/`.
 Profiles: `gw llm mock` (LiteLLM, Postgres, Valkey, llama.cpp chat+embed, mock-vllm). Simulated: mock-vllm backends (fixed `usage`, unique response ids). Real: LiteLLM, Postgres, Valkey, llama.cpp.
@@ -24,7 +23,10 @@ Admin calls use the master key from `lab/env.sample` (`MASTER=...`). Gateway: `h
 | `lab/provision.sh` | yours — tasks 4.2, 4.3, 4.6, 4.7 (starter: empty skeleton; must be idempotent, writes `lab/out/keys.env`) |
 | `lab/answers/durability.env` | yours — task 4.4 |
 | `lab/answers/network.env` | yours — task 4.8 |
-| `lab/replicas.sh`, `lab/env.sample`, `lab/litellm/team-seed.json`, `platform/`, `mock/`, module scripts | given — do not modify |
+| `lab/net/apply.sh` | yours — task 4.8 (idempotent) |
+| `lab/replicas.sh`, `lab/env.sample`, `lab/out/` (written by your scripts), `platform/`, `mock/`, module scripts | given — do not modify |
+
+`lab/out/keys.env` (written by your `provision.sh`) must contain `KEY_CHAT_ONLY`, `KEY_LIMITED`, `KEY_TPM`, `KEY_TEAM`. The key of task 4.7 is created by `prepare-lab.sh` (verify knows it).
 
 Useful commands:
 
@@ -34,7 +36,7 @@ curl -s localhost:18040/v1/models -H "Authorization: Bearer $KEY" | jq '.data[].
 curl -s localhost:18040/key/info?key=$KEY -H "Authorization: Bearer $MASTER" | jq .
 curl -s localhost:18040/key/list -H "Authorization: Bearer $MASTER" | jq .
 # restart only the gateway (config edits need it)
-../../platform/stack.sh restart litellm        # (TBD-WP2: exact verb)
+../../platform/stack.sh compose restart litellm
 # logs
 ../../platform/stack.sh logs litellm | tail -50
 # postgres
@@ -92,16 +94,16 @@ docker exec -it $(docker ps -qf label=course=aiinfra -f name=postgres) psql -U l
 **Goal:** the gateway survives a restart with its keys, and you can say precisely what is stored where.
 
 1. If keys vanish after a restart, find out why (hint: Task 4.1 step 2, and `docker logs`). Fix it in `config.yaml`.
-2. Query Postgres: count key rows in `LiteLLM_VerificationToken` (prepare seeded a hidden number of extra keys; report **what you see**, not a guess).
+2. Query Postgres: count the key rows whose `key_alias` starts with `legacy-` in the key table (prepare seeded a per-learner number of them; report **what you see**, not a guess).
 3. Fill `lab/answers/durability.env`:
-   - `KEYS_TABLE=` table that holds key records, `KEY_ROWS=` the count you read,
+   - `KEYS_TABLE=` table that holds key records, `LEGACY_KEY_ROWS=` the count you read,
    - `SPENDLOG_PK=` the column that is the primary key of the per-request spend log,
    - `LOST_ON_RESTART=` comma list from `{keys,spend_logs,rpm_counters,model_list}` that are lost on a restart with no Valkey.
 4. Predict, then measure: how long after a request does its row appear in `LiteLLM_SpendLogs` (`proxy_batch_write_at` is 5 in this lab)? Why is `sleep 1` in a test script wrong?
 
 **Success criteria**
 - `4.4.1` After a gateway restart (done by verify), `lab-chat-only` still returns 200.
-- `4.4.2` `KEYS_TABLE` and `SPENDLOG_PK` are correct; `KEY_ROWS` equals the live count of the variant (differs per learner).
+- `4.4.2` `KEYS_TABLE` and `SPENDLOG_PK` are correct; `LEGACY_KEY_ROWS` equals the live count of `legacy-%` keys (differs per learner).
 - `4.4.3` `LOST_ON_RESTART` is exactly right.
 - `4.4.4` A verify-sent request (nonce user) appears in the spend log within the bounded poll.
 
@@ -134,30 +136,31 @@ docker exec -it $(docker ps -qf label=course=aiinfra -f name=postgres) psql -U l
 
 **Goal:** fix a mismatch without breaking isolation.
 
-Story: the data-science team's key `lab-ds-key` (belongs to team `lab-ds`) gets 403 on `embed`, although its own model list contains `chat` and `embed`. `prepare-lab.sh` created the team and key (see `lab/litellm/team-seed.json` for what the platform team said they wanted). A colleague suggests setting `models: ["*"]` on the key.
+Story: the data-science team's key `lab-ds-key` (it belongs to team `lab-ds` and carries no model list of its own) gets 403 on `embed`. The platform team forgot to give the team the embedding model. A colleague suggests setting `models: ["*"]` ("all-proxy-models") to make the error go away.
+
 
 1. Find which level denies `embed` (compare `/key/info` and `/team/info`).
-2. Fix it on the **right** object with the narrowest change (an admin call scripted in `provision.sh`).
+2. Fix it on the **right** object with the narrowest change (an admin call scripted in `provision.sh`; the script runs repeatedly, so the call must be idempotent). Key `lab-ds-key` must keep working with the same key value.
 3. The data-science team must NOT get the `coder` alias. It must still be denied afterwards.
 
 **Success criteria**
 - `4.7.1` `lab-ds-key` gets 200 on `embed` and on `chat`.
-- `4.7.2` `lab-ds-key` still gets 403 on `coder` (a wildcard fix fails here).
+- `4.7.2` `lab-ds-key` still gets 403 on `coder` (a wildcard fix fails here; prepare-lab.sh created the team and key, you fix them with an admin call in `provision.sh`).
 - `4.7.3` Another team's key (`lab-team-key`) is unchanged: 403 on `embed`.
 
 ## Task 4.8 — Backends only through the gateway
 
 **Goal:** prove the gateway is the only path for a client, and say why that matters.
 
-1. A client container (`platform/` helper, TBD-WP2) is attached to the client network only. From it, call a backend directly and via the gateway.
-2. Production reasoning: write in `lab/answers/network.env`: `DIRECT_RESULT=` what the direct call returned (`refused|timeout|200`), `GATEWAY_RESULT=` status via the gateway, `K8S_CONTROL=` the Kubernetes object that enforces the same (`NetworkPolicy|Ingress|ServiceAccount|PodSecurity`), and `BYPASS_LOSES=` comma list from `{auth,rate_limits,spend,audit,aliases}` that a direct call skips (all that apply).
+1. `prepare-lab.sh` started a client container `aiinfra-lab04-client`. At the start it sits on the backend network `aiinfra` (as a "debug" shortcut) and on a client-only network `aiinfra-lab04-client`; the gateway is not on the client network. From inside the container (`docker exec aiinfra-lab04-client python3 ...`; the image has python3, no curl) call a backend directly (`http://llama-chat:8080/v1/models`) and the gateway (`http://aiinfra-litellm-1:4000/...` with `lab-chat-only`).
+2. Fix the topology with `lab/net/apply.sh` (idempotent, `docker network connect/disconnect`): the client may reach the gateway but not the backends. Production would use Kubernetes objects instead — which?
+3. Read the client's `LAB_TOKEN` (`docker exec aiinfra-lab04-client printenv LAB_TOKEN`) and fill `lab/answers/network.env`: `CLIENT_TOKEN=` that value, `DIRECT_RESULT=` what the direct call does after your fix (`unresolvable|refused|timeout|200`), `GATEWAY_RESULT=` HTTP status via the gateway, `K8S_CONTROL=` the Kubernetes object that enforces the same in a cluster (`NetworkPolicy|Ingress|ServiceAccount|PodSecurity`), `BYPASS_LOSES=` comma list from `{auth,rate_limits,spend,audit,aliases}` of what a direct backend call would skip (all that apply).
 
 **Success criteria**
-- `4.8.1` From the client network: backend direct call fails, gateway call with a valid key succeeds (verify probes live).
-- `4.8.2` `network.env` values match the live probe result and are internally consistent.
+- `4.8.1` After verify runs your `apply.sh`: from the client container the backend direct call fails and a gateway call with a valid key returns 200.
+- `4.8.2` `network.env`: `CLIENT_TOKEN` equals the container's token, `DIRECT_RESULT` and `GATEWAY_RESULT` match what verify observes, `K8S_CONTROL` is correct.
 - `4.8.3` `BYPASS_LOSES` is exactly right.
-
-(Phase 2 finalizes how the client network is provided; if the stack gives no separable network the learner edits a given compose override in `lab/net/` instead.)
+- `4.8.4` `apply.sh` is idempotent (second run, exit 0, same result) and the gateway still works for host clients on :18040.
 
 ## Wrap-up
 

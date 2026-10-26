@@ -62,7 +62,24 @@ Components start in a dependency order enforced by the validator: if one stage f
 
 **Air-gapped install** (theory, you do not run it): mirror the operator and component images to the internal registry (`validator.repository`, `driver.repository`, `toolkit.repository`... or global `--set operator.repository=registry.local/nvidia`), pre-build the driver image for your exact kernel (`nvcr.io/nvidia/driver:<ver>-<os>`; the driver container compiles or fetches kernel modules at start, which needs the OS package repos mirrored) **or** use pre-installed host drivers (`driver.enabled=false`) and preinstalled toolkit. Charts come from a local Helm repo or OCI registry. `imagePullSecrets` for the internal registry. This is typically the hardest part of an on-prem GPU rollout; the kernel/driver matrix is the thing to document.
 
-**How the lab differs:** kind has no driver, toolkit or device plugin. We patch `status.capacity` and `status.allocatable` of the node with `nvidia.com/gpu` and add the GFD-style labels by hand (task 9.4). To the scheduler this is indistinguishable from a device plugin having reported GPUs. Two honest consequences: (1) the patch only survives because nothing reconciles it in kind (a real device plugin owns that field and would overwrite it); (2) containers get no `/dev/nvidia*` (the pods in the lab run `sleep`). An optional alternative, `run-ai/fake-gpu-operator` (chart 0.2.1), does the reconciling and works on arm64, but its exporter publishes only 3 DCGM series, which is why the course keeps mock-dcgm.
+**How the lab differs:** kind has no driver, toolkit or device plugin. We patch `status.capacity` and `status.allocatable` of the node with `nvidia.com/gpu` and add the GFD-style labels by hand (task 9.4). To the scheduler this is indistinguishable from a device plugin having reported GPUs. Two honest consequences: (1) the patch only survives because nothing reconciles it in kind (a real device plugin owns that field and would overwrite it); (2) containers get no `/dev/nvidia*` (the pods in the lab run `sleep`). An optional alternative, `run-ai/fake-gpu-operator` (chart 0.2.1, `platform/k8s.sh fake-gpu`), does the reconciling and works on arm64, but its exporter publishes only 3 DCGM series, which is why the course keeps mock-dcgm. The scheduler consumes `allocatable`; the kubelet derives `allocatable` from `capacity` for resources it does not manage itself, so a capacity-only patch also works after the kubelet's next node-status sync (up to ~10 s). `platform/k8s.sh gpu-patch` writes both so the effect is immediate; the lab script you write should too.
+
+### 1.2 What actually happens when the pod starts
+
+1. The scheduler binds the pod to a node whose `allocatable` has enough `nvidia.com/gpu`. It knows nothing about which physical GPU: only a count.
+2. The kubelet sees an extended resource it does not own, finds the registered device plugin for that name (a gRPC server on a unix socket under `/var/lib/kubelet/device-plugins/`) and calls `Allocate(deviceIDs)`. The kubelet picks the IDs (optionally asking the plugin for a preference through `GetPreferredAllocation`).
+3. The plugin answers with what the container needs: environment (`NVIDIA_VISIBLE_DEVICES=GPU-<uuid>,...`) or, in CDI mode, CDI device names (`nvidia.com/gpu=GPU-<uuid>`), plus mounts and device nodes.
+4. containerd (via the `nvidia` runtime handler or CDI injection) edits the OCI spec: bind-mounts `/dev/nvidiactl`, `/dev/nvidia-uvm`, `/dev/nvidiaN`, the driver userspace libraries (`libcuda.so.1`, `libnvidia-ml.so.1`) and `nvidia-smi`. The **image does not contain the driver**; it contains the CUDA runtime. The driver always comes from the host. That is why the driver version must be at least what the image's CUDA needs (the compatibility table is in the CUDA release notes; "forward compatibility" packages exist but are not a plan).
+5. The process starts, vLLM calls `cudaGetDeviceCount`, sees only the allocated GPUs, and `CUDA_VISIBLE_DEVICES` indexes start at 0 inside the container regardless of the host index.
+
+Consequences for operations: the pod's GPU identity is a UUID known to the plugin, the kubelet's pod-resources API (`/var/lib/kubelet/pod-resources/kubelet.sock`) is the only place where "pod X owns GPU-uuid Y" is recorded, and that is exactly what dcgm-exporter reads to attach `pod`/`namespace` labels. Nothing in the scheduler's data model says which GPU a pod got.
+
+### 1.3 Health, and what the device plugin does about XIDs
+
+The NVIDIA device plugin watches NVML events. For a critical XID on a device it marks that device `Unhealthy` in its `ListAndWatch` stream: the node's `allocatable` drops by one, new pods cannot get it, but a **running pod is not evicted** (it is probably already dead or about to be). A short list of application-class XIDs (13, 31, 43, 45 and a few more; the exact list is in the plugin source of your pinned version, and `DP_DISABLE_HEALTHCHECKS=xids`/`all` turns the behaviour off) is deliberately ignored, because one buggy CUDA kernel must not remove a healthy GPU from the fleet. Two practical points:
+
+- A node whose `allocatable` quietly decreased is an **early, free signal**: alert on `kube_node_status_allocatable{resource="nvidia_com_gpu"} < kube_node_status_capacity{resource="nvidia_com_gpu"}` (kube-state-metrics) for longer than a few minutes.
+- The plugin never repairs anything. Unhealthy devices come back only after the underlying cause is gone and the plugin restarts or sees the device healthy again; GPU reset and node reboot are your job (or the node-repair automation of section 5).
 
 ---
 
@@ -111,7 +128,7 @@ Tensor parallelism (module 01) splits each layer across GPUs; they exchange acti
 
 - `--tensor-parallel-size 2` requires `limits: nvidia.com/gpu: 2` **in one pod, on one node**. A pod can never span nodes; two pods each with 1 GPU on different nodes cannot do TP together (that needs pipeline/Ray or a multi-node framework such as LeaderWorkerSet).
 - If no node has 2 free GPUs, the pod is Pending even when the cluster has 2 free GPUs spread over two nodes (**fragmentation**). Capacity planning is per node, and this is the main reason inference fleets keep uniform node shapes.
-- Topology matters: 2 GPUs connected by NVLink (SXM/HGX boards, NVSwitch) vs through PCIe is a 5-10x bandwidth gap; the device plugin does not pick NVLink-adjacent pairs by default. Mitigation on real clusters: topology-aware device plugin settings, or dedicate nodes with full NVLink domains (8 GPUs, request all 8 or fixed halves).
+- Topology matters: 2 GPUs connected by NVLink (SXM/HGX boards, NVSwitch) vs through PCIe is a 5-10x bandwidth gap; the kubelet asks the NVIDIA plugin for a preferred set (`GetPreferredAllocation`) and the plugin tries to pick well-connected GPUs, but this is best effort: after pods of different sizes came and went, the free GPUs on a node may no longer share a fast link. Check with `nvidia-smi topo -m` (NV# = NVLink, PHB/SYS = PCIe/host bridge) inside a pod. Mitigation on real clusters: dedicate nodes with full NVLink domains and request whole domains (all 8, or fixed halves/quarters), and keep TP sizes uniform per pool.
 - vLLM shared-memory trap: TP workers communicate through `/dev/shm`; the default 64 MiB in a pod is far too small. Mount `emptyDir: {medium: Memory}` at `/dev/shm` (or set `--ipc=host` in docker). Missing this gives bus errors / NCCL hangs at start.
 - Use `Deployment` + `strategy: Recreate` (or `maxSurge: 0`) for a model that fills whole GPUs: a rolling update needs the old and the new pod simultaneously and so double the GPUs; with no spare capacity the new pod is Pending forever and the rollout stalls.
 - Large images and model weights: startup takes minutes (pull image 5-10 GB + load weights). Use `startupProbe` with a generous `failureThreshold` and a `readinessProbe` on `/health` (vLLM returns 503 until loaded); a liveness probe too aggressive restarts the pod in a loop during a long load.
@@ -125,6 +142,32 @@ kubectl describe node N | sed -n '/Allocated resources/,/Events/p'   # what is a
 ```
 
 Then in order: resource name spelled right? capacity exists on any node? taints tolerated? selector labels exist on a node **with** capacity? enough GPUs on a **single** node? Is something else (a stuck Terminating pod) holding the GPU?
+
+### 2.5 Pending messages, worked examples
+
+The scheduler runs filter plugins in a fixed order (NodeUnschedulable, NodeName, **TaintToleration**, **NodeAffinity** (includes nodeSelector), NodePorts, **NodeResourcesFit**, ...) and records, per node, the reason of the **first** filter that rejected it. The event is the histogram of those reasons. Three nodes in the lab: a control-plane (tainted `node-role.kubernetes.io/control-plane`), a 2-GPU node and a 1-GPU node, both GPU nodes tainted `nvidia.com/gpu=present:NoSchedule`.
+
+| Pod | Message (abridged) | Reading |
+|---|---|---|
+| asks `nvidia.com/gpu: 4`, tolerates | `0/3 nodes are available: 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }, 2 Insufficient nvidia.com/gpu.` | capacity: no node has 4. Toleration is fine (the GPU nodes passed TaintToleration and failed NodeResourcesFit) |
+| asks 1 GPU, no toleration | `0/3 nodes are available: 3 node(s) had untolerated taint {...}` (the message lists each distinct taint with its count) | toleration missing; the GPU nodes never got as far as the capacity check |
+| asks `nvidia.com/gpus: 1` (typo), tolerates | `0/3 nodes are available: 1 node(s) had untolerated taint {...}, 2 Insufficient nvidia.com/gpus.` | unknown resource name: every node "lacks" it. Compare with `allocatable` keys |
+| nodeSelector `nvidia.com/gpu.product: A100`, tolerates | `... 2 node(s) didn't match Pod's node affinity/selector.` | label string wrong or GFD absent; capacity was never evaluated |
+| asks 2 GPUs, one free GPU on each of two nodes | `... 2 Insufficient nvidia.com/gpu.` | fragmentation: the sum is enough, no single node is |
+
+Notice that the **same** words "Insufficient nvidia.com/gpu" appear for "the node has 1 GPU and a pod holds it" and for "the node has none". Distinguish with `kubectl get node -o json | jq '.items[] | {n:.metadata.name, a:.status.allocatable["nvidia.com/gpu"]}'` and `kubectl describe node` (Allocated resources). After a fix the message changes to the *next* reason: fix one cause, re-read, repeat. A pod can have three independent problems and show only one at a time.
+
+The tail `preemption: 0/3 nodes are available: ... Preemption is not helpful for scheduling` means that evicting lower-priority pods would not help (e.g. the reason is a taint or a selector). If a `PriorityClass` is in play and victims exist you will see the pod `Pending` while others terminate; know your priority setup before you debug "mysterious evictions".
+
+### 2.6 Node shape, NUMA and CPU/memory around the GPU
+
+A GPU pod needs more than a GPU: CPU for the tokenizer and API server, host RAM for pinned buffers and weight loading, and local disk for the weight cache. Typical mistakes: requesting `nvidia.com/gpu: 8` and 2 CPUs (the engine starves in the tokenizer, GPU idles), or no memory limit and an OOM-kill of the pod during weight load (a 70B checkpoint streams through host RAM). Rules of thumb for vLLM: 4-8 vCPU per GPU, host RAM at least the size of the largest safetensors shard times a small factor, and `requests == limits` for CPU and memory (Guaranteed QoS) so the kubelet does not throttle or evict the engine.
+
+With the kubelet **Topology Manager** (`single-numa-node` or `best-effort`) plus the CPU Manager `static` policy, a Guaranteed pod gets exclusive cores on the same NUMA node as its GPU, which matters for host-to-device copies and for NCCL. It only works if the device plugin supplies topology hints; the NVIDIA plugin does. The price is stricter packing: pods that would fit in total may not fit under the NUMA constraint (`Topology Affinity Error` is the symptom, a pod in `Failed`, not `Pending`).
+
+### 2.7 Startup time budget, and why probes kill GPU pods
+
+Typical numbers for a 70B bf16 model on 4 GPUs: image pull 4-10 GB (1-3 min if cached on the node, 10+ min if not), weight read 140 GB from local NVMe (~1-2 min at 2 GB/s, 10+ minutes from a network volume), CUDA graph capture and warmup (1-3 min). So **5-15 minutes** from `Running` to serving. Consequences: a liveness probe with `initialDelaySeconds: 30` kills the pod in a restart loop that looks like "vLLM keeps crashing"; use `startupProbe` (`failureThreshold: 90`, `periodSeconds: 10` = 15 min budget) that gates liveness/readiness, readiness on `/health` (200 only when the engine is up), and a **liveness probe that is lenient** (a long prefill or a stalled-but-recovering engine must not be restarted). Also set `terminationGracePeriodSeconds` to cover in-flight streams (60-120 s) and give the pod a `preStop` sleep so the Service endpoints drain first. In the lab the stand-in container is `sleep`, so none of this is exercised; the manifests still carry the correct shape.
 
 ---
 
@@ -199,6 +242,34 @@ Automation worth knowing: **node problem detector / NVIDIA's "GPU health" checks
 ### 3.4 "GPU utilisation" is not saturation
 
 `DCGM_FI_DEV_GPU_UTIL` is the fraction of the sample period in which **at least one kernel was executing** on the GPU. A single tiny kernel running continuously reads 100% while using 1 of 132 SMs. A decode-heavy LLM server is memory-bandwidth-bound: it can show 95-100% GPU_UTIL with low `PROF_SM_ACTIVE`/tensor activity. The reverse also holds: a vLLM server waiting for requests shows ~0% but holds 90% of VRAM. For capacity decisions use **queue metrics and KV usage from the engine** (`vllm:num_requests_waiting`, `vllm:kv_cache_usage_perc`, module 03/08) and, if available, profiling fields. GPU_UTIL is a "is anything running" signal, good for finding idle (wasted) GPUs, bad for finding full ones.
+
+### 3.5 Running dcgm-exporter (production) and what the mock leaves out
+
+In a GPU Operator cluster the exporter is a DaemonSet (`nvidia-dcgm-exporter`) on GPU nodes, one Service on :9400, scraped through a ServiceMonitor (kube-prometheus-stack) or a static/endpoint-discovery job. Details that bite:
+
+- **Collection interval**: default 30 s (`DCGM_EXPORTER_INTERVAL`, ms). Scrape faster than that and you read the same value repeatedly; an alert `for: 30s` then means one sample. Align scrape interval, exporter interval and `for:`.
+- **Field list**: the exporter exports the counters named in a CSV (`default-counters.csv`; one line per field: `DCGM_FI_DEV_GPU_TEMP, gauge, GPU temperature (in C).`). Profiling fields (`DCGM_FI_PROF_*`) are often commented out by default, mounted through a ConfigMap you own. Missing metric = check the CSV before the driver.
+- **Pod attribution**: `--kubernetes` mode reads the kubelet pod-resources socket; the DaemonSet must mount `/var/lib/kubelet/pod-resources` and run with enough privilege to read it. Without it the `pod`/`namespace` labels are absent and cost/incident attribution is impossible.
+- **hostengine**: the exporter embeds one or talks to a standalone `nv-hostengine` (`DCGM_REMOTE_HOSTENGINE_INFO`). Only one process may own the profiling counters at a time; running `dcgmi dmon` or Nsight next to the exporter can make `PROF_*` disappear.
+- **Cardinality**: 8 GPUs x ~40 fields x nodes is small; per-pod labels on a time-sliced or MIG GPU multiply series (one per MIG instance, `GPU_I_ID` label). Fine, but know it when you size Prometheus.
+- **Staleness**: when a GPU falls off the bus the exporter may stop emitting its series entirely instead of emitting a bad value. `absent()` / `up == 0` and "series for this UUID vanished" are alerts too (`count by (Hostname) (DCGM_FI_DEV_GPU_TEMP) < 8` on an 8-GPU node is cheap and effective).
+
+The lab's mock-dcgm reproduces names, labels and fault values, not these deployment problems, and the simulated load is smooth and uncoupled from mock-vllm traffic. Real fleets have noisy temperature (+-3 C), idle power floors, and XIDs that arrive in storms (79 is typically preceded by 74 or 45 lines in `dmesg`).
+
+### 3.6 Designing the lab's four alerts (worked reasoning)
+
+Each alert answers three questions: **what is the signal type** (gauge/counter/last-value), **what should time do to it** (`for:`, a window), and **what should stay quiet**.
+
+| Alert | Signal | Expression shape | `for` | Must stay quiet on |
+|---|---|---|---|---|
+| `GpuXidError` | last-value gauge, stays non-zero until reset | `DCGM_FI_DEV_XID_ERRORS > 0` | 0-1 m (hard faults page) | XID value 0 |
+| `GpuTooHot` | gauge | `DCGM_FI_DEV_GPU_TEMP > 85` | 2 m (blips and a 30 s spike are normal) | a GPU at 84 C all day; a 30 s spike |
+| `GpuEccUncorrected` | counter since driver load | `increase(DCGM_FI_DEV_ECC_DBE_VOL_TOTAL[5m]) > 0` | 0 | a counter stuck at 3 (old errors); **SBE** growth (corrected, different alert) |
+| `GpuMemoryLeak` | gauge, slope | `predict_linear(FB_USED[10m], 7200) > FB_USED + FB_FREE` | 5 m | a GPU 95 % full but flat; slow benign growth that would take days to fill |
+
+Why `predict_linear` and not `deriv(...) > 0`: any positive slope fires, including model warm-up and a cache that grows 10 MiB/min. The question the on-call asks is "will it hit the ceiling before I can react", which is a prediction against the total (`FB_USED + FB_FREE`). For vLLM the baseline is flat because VRAM is preallocated (module 03); the rule is for everything else sharing the card (a second process, a notebook, a leaking custom kernel).
+
+Test rules with `promtool test rules`: feed synthetic series (`DCGM_FI_DEV_GPU_TEMP{...} 92x40`), assert an alert fires at a given `eval_time` and assert quiet series stay quiet. Unit-test **pairs**; a rule that fires on everything passes every positive test. Labels: aggregate with `max by (Hostname, gpu, UUID)` (or do not aggregate at all) so the page tells the on-call which node and which physical GPU. In the lab, verify uses `promtool` against your rules with its own series, then repeats the XID case live against mock-dcgm.
 
 ---
 
@@ -290,6 +361,19 @@ Status relevant to the pins: the structured-parameters DRA API went **beta in Ku
 | notebooks, CI smoke tests, demos | time-slicing |
 | multi-tenant with SLOs and hostile neighbours | MIG (or dedicated); never time-slicing |
 
+### 4.6 Worked numbers
+
+**Time-slicing.** 8 physical GPUs, `replicas: 4`, `renameByDefault: false`: the node advertises `nvidia.com/gpu: 32`. A Deployment of 3 replicas each asking `nvidia.com/gpu: 1` may land **on the same physical GPU** (the scheduler sees 32 interchangeable units). A pod asking `nvidia.com/gpu: 2` receives two slices, possibly of one GPU, so neither twice the compute nor a TP-capable pair. With `renameByDefault: true` the node advertises `nvidia.com/gpu: 8` (exclusive, unchanged) **and** `nvidia.com/gpu.shared: 32`; whole-GPU pods and shared pods can no longer be confused, and `failRequestsGreaterThanOne: true` makes a request for 2 `gpu.shared` fail at admission to the plugin (Allocate error) instead of silently giving less than the user thinks. Remember the plugin config is applied per node through `nvidia.com/device-plugin.config=<key>`, so a mixed fleet keeps most nodes exclusive.
+
+**MIG sizing for a 7B model.** bf16 weights = 7.6e9 x 2 B = 15.2 GB. On an 80 GB H100 `1g.10gb` has ~9.6 GiB usable: does not fit. `2g.20gb` (~19.5 GiB): weights 14.2 GiB, activations and CUDA context ~1.5 GiB, leaving ~3.5 GiB for KV; at 57 344 B/token (Qwen2.5-7B GQA, module 01) that is ~64 000 tokens, about 8 concurrent 8k-token sequences. `3g.40gb` leaves ~23 GiB KV (~440 000 tokens). The point: compute the **slice's** budget with the module-01 formula; `--gpu-memory-utilization 0.9` then refers to the slice. Seven `1g.10gb` slices serve seven small embedding models, not one big one.
+
+**MPS vs MIG in one sentence each.** MPS lets trusted processes use SMs concurrently (throughput, no walls); MIG builds walls in hardware (isolation, rigidity). Neither helps a model that does not fit in one GPU's memory; that is TP across whole GPUs.
+
+### 4.7 What the lab does and does not show about sharing
+
+- Task 9.6 produces the exact ConfigMap the GPU Operator consumes, and the lab checks (a) schema, (b) API-server acceptance (server-side dry-run), (c) that the embedded plugin config parses with the intended keys. It cannot show that the plugin accepts it, that the node advertises 4x, or what happens to two processes sharing VRAM. **Validated, not exercised.**
+- Real check list after applying on a real cluster: plugin pods restarted and logged the config they loaded; `kubectl get node -o json | jq .status.allocatable` shows `replicas x GPUs`; GFD labels `nvidia.com/gpu.replicas` and the `-SHARED` product suffix appear; two test pods on the same GPU show in `nvidia-smi` as two processes; start a third that exceeds VRAM and observe the CUDA OOM (so you have seen the failure mode before a customer does).
+
 ---
 
 ## 5. Production GPU operations
@@ -304,6 +388,22 @@ Status relevant to the pins: the structured-parameters DRA API went **beta in Ku
 - **Model weights on nodes**: pull from the internal mirror/object store into a local cache volume (hostPath/PVC/ephemeral NVMe); a 140 GB model downloaded on every pod start is an outage waiting for a registry blip. Pre-warm with a DaemonSet or an image-volume.
 - **Cost visibility**: GPU hours by team through pod attribution in DCGM (`namespace`/`pod` labels) and kube-state-metrics; idle-GPU report = GPUs allocated to pods with GPU_UTIL near 0 for hours.
 - **Security**: do not give workloads `privileged` to "get GPU access"; the toolkit/CDI path provides devices without it. `NVIDIA_VISIBLE_DEVICES=all` in an image combined with the toolkit can hand a pod GPUs it never requested on some runtime configs: set `accept-nvidia-visible-devices-envvar-when-unprivileged = false` in toolkit config (operator default in recent versions) so that only the device plugin decides.
+
+### 5.0 Capacity planning, with numbers
+
+Inputs: model weights W (GB), KV budget per concurrent request, target concurrency C, GPU memory M, `--gpu-memory-utilization` u. Example: Llama-3.1-70B bf16 (141 GB) on 80 GB GPUs, u = 0.9, 8k context, KV 327 680 B/token (module 01). TP=2 gives 144 GB budget minus 141 GB weights: no KV left. TP=4: 288 GB - 141 = ~147 GB minus activations/context (~6 GB per GPU) ~ 123 GB KV = ~375 000 tokens = ~46 sequences at 8k. So **TP=4, one pod needs `nvidia.com/gpu: 4` on one node**. On an 8-GPU node that leaves one more TP=4 pod; a 6-GPU node strands 2 GPUs. Plan node shapes (4 or 8 GPUs) from the TP sizes you actually run; mixing TP=2 and TP=4 pods on 8-GPU nodes leads to stranded GPUs after churn (fragmentation) unless the scheduler is helped with bin-packing (`MostAllocated` scoring in `NodeResourcesFit`, dedicated pools per TP size, or Kueue).
+
+Fragmentation report worth having on a dashboard: for each node `free = allocatable - requested` (kube-state-metrics: `kube_node_status_allocatable{resource="nvidia_com_gpu"} - sum by (node) (kube_pod_container_resource_requests{resource="nvidia_com_gpu"})`) and the largest free block; alert when `max(free) < largest TP in the queue` while `sum(free) >= TP`.
+
+### 5.0b Incident walk-through: "chat is slow and some requests fail"
+
+1. Gateway dashboard (module 05/08): errors on one upstream, others fine. TTFT of that replica up, `vllm:num_requests_waiting` rising: the replica is the problem, not the fleet.
+2. `kubectl get pod -o wide`: pod `vllm-0` on node `gpu-b3`, Running, restarts 0. So not a crash.
+3. DCGM for that pod's GPU (pod label or UUID): `DCGM_FI_DEV_GPU_TEMP` 91 C, `CLOCK_THROTTLE_REASONS` = 0x60-class bits set, `SM_CLOCK` down 40 %. Thermal throttling: ITL grew because clocks fell, not because of load.
+4. Neighbours on the same rack show 78 C: cooling problem in one chassis. Action: cordon `gpu-b3`, drain the replica (PDB allows, a second replica serves), open a facilities ticket with node, GPU UUID and the temperature graph; keep the gateway cooldown from sending traffic meanwhile.
+5. After repair: `dcgmi diag -r 2` (or `-r 3` for burn-in), uncordon, watch ITL return to baseline. Postmortem item: add `GpuTooHot` with `for: 2m` (it would have paged 25 minutes earlier) and an `ITL p95` SLO alert that correlates.
+
+The shape of every GPU incident: **user symptom (gateway) -> engine metrics (queue, KV, ITL) -> pod/node (k8s) -> GPU (DCGM, nvidia-smi, dmesg XID) -> action (restart, drain, reset, RMA)**. Learn to move down this chain quickly and to know which layer owns the fix.
 
 ### 5.1 Debug flow when "the model pod has no GPU"
 

@@ -160,6 +160,11 @@ services:
     image: ${MOCK_IMAGE}
     profiles: [mock]
     command: ["vllm"]
+    environment:
+      MOCK_TIME_SCALE: ${MOCK_TIME_SCALE:-1}
+      HF_HUB_DISABLE_XET: "1"
+      HF_HUB_OFFLINE: ${MOCK_HF_OFFLINE:-0}        # per-lab: 1 = cache only; HF_ENDPOINT via MOCK_HF_ENDPOINT
+      HF_ENDPOINT: ${MOCK_HF_ENDPOINT:-https://huggingface.co}
     volumes: ["${MOCK_VLLM_A_CONFIG_DIR:-./config/mock-vllm-a}:/config:ro"]
     ports: [127.0.0.1:18021:8000]
     mem_limit: 256m
@@ -171,6 +176,11 @@ services:
     image: ${MOCK_IMAGE}
     profiles: [mock]
     command: ["vllm"]
+    environment:
+      MOCK_TIME_SCALE: ${MOCK_TIME_SCALE:-1}
+      HF_HUB_DISABLE_XET: "1"
+      HF_HUB_OFFLINE: ${MOCK_HF_OFFLINE:-0}        # per-lab: 1 = cache only; HF_ENDPOINT via MOCK_HF_ENDPOINT
+      HF_ENDPOINT: ${MOCK_HF_ENDPOINT:-https://huggingface.co}
     volumes: ["${MOCK_VLLM_B_CONFIG_DIR:-./config/mock-vllm-b}:/config:ro"]
     ports: [127.0.0.1:18022:8000]
     mem_limit: 256m
@@ -351,6 +361,7 @@ services:
     profiles: [store]
     environment:
       TRIPWIRE_IP: 172.29.231.2          # every name resolves to the tripwire's address on the internal network
+      TRIPWIRE_FORWARD: ${TRIPWIRE_FORWARD:-}   # comma list of domains still forwarded to Docker DNS (not counted)
     networks:
       aiinfra: { ipv4_address: 172.29.230.2 }
       aiinfra-airgap: { ipv4_address: 172.29.231.2 }

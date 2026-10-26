@@ -1,0 +1,12 @@
+{
+  "size_q4_bytes": -1,
+  "size_q8_bytes": -1,
+  "ftype_q4": "TODO",
+  "ftype_q8": "TODO",
+  "tensor_types_q4": [],
+  "tensor_types_q8": [],
+  "bpw_q4": -1,
+  "bpw_q8": -1,
+  "prompt_eval_ratio_q8_over_q4": -1,
+  "why_q8_prompt_faster": "TODO (one of: q8_simple_int8_blocks_map_to_dotprod_kernels | q8_is_smaller_so_less_memory_traffic | q4_has_no_cpu_kernel | measurement_noise)"
+}

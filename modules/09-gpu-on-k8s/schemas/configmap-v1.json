@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Offline stand-in for the upstream ConfigMap v1 schema (course use only). In production kubeconform reads the full upstream schema set from a mirrored -schema-location.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {"const": "v1"},
+    "kind": {"const": "ConfigMap"},
+    "metadata": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "namespace": {"type": "string"},
+        "labels": {"type": "object", "additionalProperties": {"type": "string"}},
+        "annotations": {"type": "object", "additionalProperties": {"type": "string"}}
+      }
+    },
+    "data": {"type": "object", "additionalProperties": {"type": "string"}},
+    "binaryData": {"type": "object", "additionalProperties": {"type": "string"}},
+    "immutable": {"type": "boolean"}
+  }
+}

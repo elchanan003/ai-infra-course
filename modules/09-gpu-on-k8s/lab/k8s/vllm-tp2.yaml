@@ -1,0 +1,30 @@
+# Task 9.7 - Deployment vllm-tp2 (1 replica): a tensor-parallel-size 2 model server needs 2 GPUs in ONE pod.
+# Stand-in container (SIMULATED): prints the vLLM command line it would run, then sleeps. Image is preloaded.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-tp2
+  namespace: gpu-lab
+  labels:
+    course: aiinfra
+spec:
+  replicas: 1
+  # TODO: update strategy
+  selector:
+    matchLabels: {app: vllm-tp2}
+  template:
+    metadata:
+      labels: {app: vllm-tp2, course: aiinfra}
+    spec:
+      terminationGracePeriodSeconds: 1
+      # TODO: nodeSelector (A100 node), tolerations, shm volume
+      containers:
+        - name: vllm
+          image: python:3.12-slim
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - |
+              echo "vllm serve /models/llama-3.1-70b --served-model-name chat"   # TODO: add the tensor-parallel flag here
+              exec sleep 3600
+          # TODO: resources, volumeMounts

@@ -55,7 +55,7 @@ if [ "$docker_ok" = 1 ]; then
     img=$(eval echo "\$${v}_IMAGE")
     docker image inspect "$img" >/dev/null 2>&1 || { bad "image missing: $img"; missing=$((missing+1)); }
   done
-  docker image inspect "$PYTHON_IMAGE" >/dev/null 2>&1 || { bad "image missing: $PYTHON_IMAGE"; missing=$((missing+1)); }
+  for img in "$PYTHON_IMAGE" "$ALPINE_IMAGE"; do docker image inspect "$img" >/dev/null 2>&1 || { bad "image missing: $img"; missing=$((missing+1)); }; done
   [ "$missing" -eq 0 ] && ok "all pinned images present"
   for img in "$MOCK_IMAGE" "$TRIPWIRE_IMAGE"; do
     docker image inspect "$img" >/dev/null 2>&1 && ok "course image $img" || warn "course image $img missing (platform/stack.sh build)"

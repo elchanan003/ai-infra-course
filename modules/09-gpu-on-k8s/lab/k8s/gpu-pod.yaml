@@ -1,0 +1,18 @@
+# Task 9.5 - pod "gpu-ok" in namespace gpu-lab: one GPU, on the node with the A100 product label.
+# Stand-in workload: no GPU software runs (SIMULATED). Image is preloaded into kind (offline).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gpu-ok
+  namespace: gpu-lab
+  labels:
+    course: aiinfra
+spec:
+  terminationGracePeriodSeconds: 1      # sleep as PID 1 ignores SIGTERM; do not wait 30 s on every delete
+  # TODO: nodeSelector, tolerations
+  containers:
+    - name: main
+      image: python:3.12-slim
+      imagePullPolicy: IfNotPresent
+      command: ["sleep", "3600"]
+      # TODO: resources

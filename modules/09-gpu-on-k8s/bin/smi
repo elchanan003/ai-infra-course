@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Fake nvidia-smi of a simulated GPU node (SIMULATED: mock-dcgm container; output imitates the real tool).
+#   bin/smi A|B [nvidia-smi arguments...]      e.g.  bin/smi A -L      bin/smi B --query-gpu=index,uuid,temperature.gpu --format=csv
+node="${1:-}"; shift || true
+case "$node" in A|a|B|b) ;; *) echo "usage: $0 A|B [nvidia-smi args...]" >&2; exit 2 ;; esac
+exec docker exec "aiinfra-mock-dcgm-$(echo "$node" | tr 'AB' 'ab')-1" nvidia-smi "$@"

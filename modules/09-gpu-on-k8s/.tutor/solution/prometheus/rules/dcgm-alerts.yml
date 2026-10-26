@@ -1,0 +1,37 @@
+groups:
+  - name: gpu-health
+    rules:
+      # XID_ERRORS holds the LAST XID code and stays non-zero until the GPU/driver is reset, so this is a state alert (> 0),
+      # not changes(). Short "for": hard faults must page quickly.
+      - alert: GpuXidError
+        expr: max by (Hostname, gpu, UUID) (DCGM_FI_DEV_XID_ERRORS) > 0
+        for: 30s
+        labels: {severity: page}
+        annotations:
+          summary: "XID {{ $value }} on {{ $labels.Hostname }} gpu {{ $labels.gpu }} ({{ $labels.UUID }})"
+
+      - alert: GpuTooHot
+        expr: max by (Hostname, gpu, UUID) (DCGM_FI_DEV_GPU_TEMP) > 85
+        for: 2m
+        labels: {severity: ticket}
+        annotations:
+          summary: "{{ $labels.Hostname }} gpu {{ $labels.gpu }} {{ $labels.UUID }} above 85 C for 2m"
+
+      # Double-bit (uncorrectable) volatile ECC is a counter since driver load: increase(), not the absolute value.
+      # Single-bit errors are corrected and deliberately not part of this alert.
+      - alert: GpuEccUncorrected
+        expr: max by (Hostname, gpu, UUID) (increase(DCGM_FI_DEV_ECC_DBE_VOL_TOTAL[5m])) > 0
+        labels: {severity: page}
+        annotations:
+          summary: "uncorrected ECC on {{ $labels.Hostname }} gpu {{ $labels.gpu }} {{ $labels.UUID }}"
+
+      # Threshold: predict the next 2 h from the last 10 min and compare with the card's total (used + free). A flat 95 %
+      # full GPU (vLLM preallocation) has slope 0 and stays quiet; a 10 MiB/min drift would need days to fill.
+      - alert: GpuMemoryLeak
+        expr: |
+          predict_linear(DCGM_FI_DEV_FB_USED[10m], 7200)
+            > (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE)
+        for: 5m
+        labels: {severity: ticket}
+        annotations:
+          summary: "framebuffer on {{ $labels.Hostname }} gpu {{ $labels.gpu }} {{ $labels.UUID }} predicted full within 2h"
