@@ -23,7 +23,7 @@ curl -s localhost:18080/health
 | `lab/aider/aider.env`, `lab/aider/run.sh` | yours — task 6.2 |
 | `lab/continue/config.yaml` | yours — task 6.3 |
 | `lab/answers/dissect.env` | yours — task 6.4 |
-| `lab/captured/agent-request.json` (generated per learner), `lab/aider/repo/` (scratch git repo, generated), `lab/env.sample`, module scripts, `platform/`, `mock/` | given — do not modify |
+| `lab/captured/agent-request.json` (generated per learner), `lab/aider/repo/` (scratch git repo, generated), `lab/continue/replay.sh`, `lab/env.sample`, module scripts, `platform/`, `mock/` | given — do not modify |
 
 ---
 
