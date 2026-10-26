@@ -223,6 +223,170 @@ What it does not model: kernel behaviour, CUDA graphs, real activation peaks (a 
 11. Liveness probe too tight for weight loading → endless restart.
 12. Sampling defaults silently coming from the model's `generation_config.json`.
 
+## 14. Reading a real startup log (what to look for, in order)
+
+A `vllm serve` start prints a few hundred lines; five matter. Real lines captured in the course spike (vLLM 0.31/0.32 on the CPU backend; on a GPU the same lines say `GPU`):
+
+```
+(APIServer pid=1)  INFO [api_utils.py:286] non-default args: {'model': 'Qwen/Qwen2.5-0.5B-Instruct', 'dtype': 'float32', 'max_model_len': 2048, 'max_num_batched_tokens': 512, 'max_num_seqs': 4}
+(APIServer pid=1)  INFO [model.py:2152] Using max model len 2048
+(APIServer pid=1)  INFO [scheduler.py:307] Chunked prefill is enabled with max_num_batched_tokens=512.
+(EngineCore pid=38) INFO [core.py:133] Initializing a V1 LLM engine (v0.31.0) with config: model='...', dtype=..., max_seq_len=2048, tensor_parallel_size=1, ... enable_prefix_caching=True ...
+(EngineCore pid=38) INFO [kv_cache_utils.py:2464] CPU KV cache size: 87,296 tokens, Maximum concurrency for 2,048 tokens per request: 42.62x
+(EngineCore pid=38) INFO [core.py:380] init engine (profile, create kv cache, warmup model) took 0.17 s
+(EngineCore pid=38) INFO [loggers.py:320] Engine 000: Avg prompt throughput: 3.6 tokens/s, Avg generation throughput: 0.3 tokens/s, Running: 1 reqs, Waiting: 0 reqs, CPU KV cache usage: 0.1%, Prefix cache hit rate: 0.0%
+```
+1. **`non-default args`** — the ground truth of what you actually configured (after env vars and defaults). Compare it with your Helm values/Compose file in every incident: a flag that silently did not arrive (typo in a templated args list) shows up here, nowhere else.
+2. **`Using max model len`** — the value of `--max-model-len` after deriving from the model config. If you did not set it, this is the model's maximum (131072 for Llama-3.1) — the usual cause of the section-3 failure.
+3. **`Initializing a V1 LLM engine … with config`** — one long line: dtype, quantization, TP/PP sizes, KV dtype, prefix caching, compilation level, tokenizer. Grep it for `kv_cache_dtype`, `enable_prefix_caching`, `max_seq_len`.
+4. **`KV cache size: N tokens`** and **`Maximum concurrency for M tokens per request: X.XXx`** — the result of the memory arithmetic. `N` is your capacity in tokens; `X` is `N / max_model_len`. These two numbers are the whole planning story; copy them into the runbook for each model/GPU pair. (They are what `vllm:cache_config_info` exposes as `kv_cache_size_tokens` and `kv_cache_max_concurrency`.)
+5. **The periodic stats line** (every ~10 s when there is traffic): `Running`, `Waiting`, `KV cache usage`, `Prefix cache hit rate`, prompt/generation throughput. This line is also what you get from `docker logs` when Prometheus is down.
+
+Other lines you will meet: `Casting torch.bfloat16 to torch.float16` (a dtype override that changes numerics and memory), `No available shared memory broadcast block found in 60 seconds` (a worker is busy — compilation, CUDA graph capture, quantization — or hung; normal during long warmups, a hang if it repeats after warmup), `Model Runner V2 requires Triton; using the V1 model runner` (a fallback, harmless), per-weight `Attempted to load weight ... with dtype bfloat16 into parameter with dtype float16` (noise when casting). **Time to healthy** is part of the capacity plan: weights load + profiling + compile/graph capture. On the CPU spike it was 3-4 minutes for a 0.5B model on a warm cache and over 18 minutes (never healthy) for 0.32.0 in default compiled mode — on GPUs, 70B from network storage takes 5-15 minutes. Probes must be sized for that (section 18).
+
+## 15. The scheduler, one step at a time (with numbers)
+
+Setup: `max_num_seqs 4`, `max_num_batched_tokens 512` (budget B), `block_size 16`, pool of 40 free blocks (640 tokens), prefix cache empty. Requests arrive: R1 (prompt 200, will generate 50), R2 (prompt 300, 50), R3 (prompt 100, 50).
+
+| Step | Running before | What the scheduler does | Tokens computed | Notes |
+|---|---|---|---|---|
+| 1 | none | admit R1: needs ceil(200/16)=13 blocks, budget 512 → prefill all 200 tokens of R1; R2 needs 19 blocks (13+19=32 ≤ 40) and 300 > remaining budget 312? 300 ≤ 312 → prefill R2 entirely | 500 | both in one step; R3 (7 blocks, 100 tokens) does not fit the budget (12 left) → partial/chunk or waits |
+| 2 | R1, R2 | decode R1, R2 (1 token each) = 2 tokens; remaining budget 510 → prefill R3 (100) | 102 | R3 gets blocks 7 → 39 of 40 used |
+| 3...49 | R1,R2,R3 | decode 3 tokens/step; each sequence crosses a block boundary every 16 tokens → allocates a new block | 3 | free blocks: 1 → after the first boundary crossings the pool is empty |
+| ~5 | R1,R2,R3 | R1 needs a block, none free: **preempt the newest running request** (R3): free its 7+ blocks, put it at the front of waiting | — | `num_preemptions_total` +1; R3 will recompute prompt + tokens so far |
+| later | R1,R2 | R1 finishes → blocks freed → R3 is admitted again (re-prefill) | 100+k | R3's TTFT was already paid once; its E2E includes the wasted work |
+
+What it teaches: (1) **prefill competes with decode for the same token budget**, so a big prompt arriving in a busy batch slows everyone's next token by the time of that prefill chunk — hence smaller chunk budgets for tight ITL; (2) admission needs blocks for the *prompt*, but growth needs blocks later: the engine admits optimistically, which is why a full pool shows up as preemptions mid-flight rather than as rejections; (3) preempting the *newest* request protects older ones from repeated waste (FCFS fairness); (4) the cost of a preemption is proportional to tokens already computed for the victim.
+
+Priority scheduling (`--scheduling-policy priority`, requests carry `priority`) changes the victim choice and admission order: batch traffic gets lower priority and absorbs preemptions. The OpenAI-compatible API accepts `priority` as an extra body field; the gateway must not let untrusted clients set it.
+
+## 16. Roofline: where tokens per second come from
+
+Decode of one step reads *all* weights once from HBM (plus the KV of every running sequence) and does little math per byte. So a first-order estimate of the decode step time is `t_step ≈ (weights_bytes + Σ kv_bytes(seq)) / HBM_bandwidth / efficiency`, and **throughput ≈ batch / t_step**.
+
+| GPU | HBM bandwidth | 8B bf16 weights (16 GB) step floor | batch 32 → tokens/s (efficiency 0.65) |
+|---|---|---|---|
+| A10G / L4 (24 GB) | ~600 GB/s / ~300 GB/s | 27 ms / 53 ms | ~700 / ~390 |
+| A100 80 GB | ~2,000 GB/s | 8 ms | ~2,600 |
+| H100 80 GB | ~3,350 GB/s | 4.8 ms | ~4,300 |
+
+(Illustrative; real engines reach 50-80% of the bandwidth bound and add overheads. The mock uses exactly `weights/(0.65·bw)` plus a KV term and a per-sequence term.) Consequences you can reason about without a benchmark: (1) decode is memory-bound, so **quantizing weights to FP8/INT4 speeds decode up** nearly proportionally (fewer bytes to read), unlike compute-bound training; (2) doubling the batch almost doubles throughput until KV reads dominate or compute saturates — that is why `max_num_seqs` matters; (3) ITL ≈ `t_step`: it rises with batch (KV reads) and with prefill chunks sharing the step; (4) **prefill is compute-bound**: time ≈ `2 · params · tokens / (TFLOPs · efficiency)` — 8B model, 4,000-token prompt, A100 (312 TFLOPs dense bf16, ~40% efficiency): `2·8e9·4000 / (312e12·0.4)` ≈ 0.5 s; on an L4 (121 TFLOPs) about 1.3 s. This is why TTFT for long prompts is the metric that hurts most on small GPUs and why prefix caching and chunking exist.
+
+## 17. Parallelism and how many GPUs per replica
+
+| Mode | Splits | Needs | Use |
+|---|---|---|---|
+| Tensor parallel (`--tensor-parallel-size`) | each layer's matrices (and attention heads) across GPUs; all-reduce twice per layer | fast interconnect (NVLink); TP divides attention and KV heads | fit a model that does not fit one GPU; reduce per-GPU weights → more KV; keep within one node |
+| Pipeline parallel (`--pipeline-parallel-size`) | layers across GPUs/nodes; micro-batches | tolerates slower links | models beyond one node (e.g. 405B across 2 nodes) |
+| Data parallel (`--data-parallel-size` or more replicas) | whole replicas | memory for full weights each | throughput; independent failure domains; preferred scale-out for ≤70B |
+| Expert parallel | MoE experts across GPUs | MoE models (DeepSeek, Mixtral) | very large MoE; interacts with DP |
+
+Rules of thumb: smallest TP that fits weights + a useful KV pool; then add replicas. TP across PCIe-only GPUs can be *slower* than a smaller TP plus quantization. 8 KV heads limit useful TP to 8 (beyond, KV heads are replicated and KV per GPU stops shrinking). A 70B bf16 model needs ≥ 2×80 GB just for weights (140 GB) and is **practical** on 4×80 GB or FP8 on 2×80 GB (cheatsheet `vram-kv-math`). Failure isolation: a TP group is a single failure domain — one GPU XID kills the whole replica (module 09).
+
+## 18. Running vLLM on Kubernetes (what teams actually write)
+
+```yaml
+containers:
+- name: vllm
+  image: vllm/vllm-openai:v0.31.0            # pin; never :latest; mirrored to the internal registry
+  args: ["--model","/models/llama-3.1-8b-instruct","--served-model-name","chat","--max-model-len","16384",
+         "--gpu-memory-utilization","0.90","--max-num-seqs","64","--enable-prefix-caching"]
+  env: [{name: HF_HUB_OFFLINE, value: "1"}]
+  resources: {limits: {nvidia.com/gpu: 1}}
+  volumeMounts: [{name: models, mountPath: /models, readOnly: true}, {name: shm, mountPath: /dev/shm}]
+  startupProbe:   {httpGet: {path: /health, port: 8000}, periodSeconds: 10, failureThreshold: 90}   # up to 15 min
+  readinessProbe: {httpGet: {path: /health, port: 8000}, periodSeconds: 5}
+  livenessProbe:  {httpGet: {path: /health, port: 8000}, periodSeconds: 30, failureThreshold: 6}
+volumes: [{name: shm, emptyDir: {medium: Memory, sizeLimit: 8Gi}}, {name: models, persistentVolumeClaim: {claimName: weights}}]
+```
+- **Startup probe first.** Weight load + profiling + graph capture takes minutes; a liveness probe that starts at t=0 kills the pod forever. `/health` returns 200 when the engine is ready (and 503 or no connection before). It does not mean "not overloaded".
+- **Shared memory**: workers communicate through `/dev/shm`; the default 64 MiB container shm breaks TP and large batches ("bus error" / worker timeouts). Use a memory `emptyDir` or `--ipc=host`.
+- **Weights from a read-only volume** (PVC populated from the internal registry/S3 — module 02), `HF_HUB_OFFLINE=1`, no network egress needed. Cold start is dominated by reading weights: local NVMe cache per node beats NFS; pre-pull/warm nodes before shifting traffic.
+- **Rolling updates**: `maxUnavailable: 0, maxSurge: 1` with GPUs scarce means you need a spare GPU, or accept brief capacity loss; `terminationGracePeriodSeconds` ≥ longest generation (in-flight streams die otherwise); a preStop sleep lets the gateway/Service drain.
+- **Autoscaling**: CPU/GPU util are poor signals. Scale on **`vllm:num_requests_waiting` / queue time / KV usage** (KEDA with the Prometheus scaler, or HPA on a custom metric) with long stabilization windows because new replicas take minutes to become ready; scale-to-zero is rarely acceptable for chat.
+- **Routing**: a plain Service round-robins and destroys prefix-cache locality; prefix/KV-aware routers (llm-d, vLLM production-stack router, Gateway API Inference Extension) or sticky routing by conversation id raise hit rates. LiteLLM/Envoy in front of replicas should use least-busy or queue-aware routing rather than blind round-robin.
+- **Security**: the engine's OpenAI API is unauthenticated unless `--api-key`; keep it on a ClusterIP behind the gateway; NetworkPolicy so only the gateway reaches port 8000; `/metrics` is open — scrape from inside the namespace only.
+
+## 19. Capacity planning, worked end to end
+
+Question: "Chat product, 200 concurrent users at peak, avg prompt 1,500 tokens (system prompt 800 of it shared), avg answer 300 tokens, p95 TTFT < 1.5 s, p95 ITL < 60 ms, Llama-3-8B bf16 on 80 GB GPUs."
+
+1. **KV per sequence at completion**: (1,500 + 300) × 128 KiB = 225 MiB. **KV pool per GPU** at util 0.90: 72 GB − 16 GB weights − ~3 GB = ~53 GB ≈ 440,000 tokens → ~245 sequences of 1,800 tokens at once (prefix sharing of the 800-token system prompt raises this: shared blocks count once).
+2. **Concurrency per GPU**: "200 concurrent users" ≠ 200 concurrent *sequences*: users think/read; typical active fraction 10-30% → 20-60 running sequences. Set `max_num_seqs 64`.
+3. **Decode throughput**: 64 sequences × (1 token / ~12 ms) ≈ 5,300 tok/s (A100/H100 class; roofline above). Demand: 60 active × ~25 tok/s each (reading speed) = 1,500 tok/s → one GPU has 3× headroom on decode.
+4. **Prefill load**: arrival rate λ = active users / (think + service time). With 200 users, 30 s mean cycle → ~6.7 req/s × 700 unshared prompt tokens (cache hit on 800) = ~4,700 prompt tokens/s. Prefill capacity on an A100 for 8B ≈ 0.4·312e12/(2·8e9) ≈ 7,800 tok/s → prefill utilization 60% **and it competes with decode in the same steps** → ITL spikes, queueing → plan **2 replicas** (and 3 for N+1 and rolling updates).
+5. **Check TTFT**: at 60% prefill utilization, M/M/1-style waiting ≈ ρ/(1−ρ) × service time = 1.5 × 0.1 s = 0.15 s on top of the 0.1 s prefill itself → p95 well under 1.5 s with margin; at 85% utilization the same formula gives 5.7 × service = 0.6 s mean and the tail blows through the SLO → keep prefill utilization ≲ 65%.
+6. **Validate** with a replay benchmark (`vllm bench serve` or GuideLLM with your prompt/output distributions and a Poisson arrival rate) and compare p95 TTFT/ITL/preemptions with the SLO; capacity numbers from vendor blogs are not yours.
+
+## 20. Features that change the math
+
+| Feature | Flag | Effect on memory | Effect on speed | Watch out |
+|---|---|---|---|---|
+| FP8 / INT4 weights | `--quantization fp8\|awq\|gptq` (or pre-quantized checkpoint) | weights ×0.5 / ×0.28 (bytes/param 1 / ~0.56) | decode faster (fewer bytes); kernel support per GPU (FP8 needs Ada/Hopper+) | accuracy; Marlin kernels for INT4 on Ampere |
+| FP8 KV cache | `--kv-cache-dtype fp8` | KV ×0.5 → 2× tokens | slight attention cost; usually faster at long ctx | accuracy impact small, workload-dependent |
+| Prefix caching | `--enable-prefix-caching` | none (shared blocks save) | prefill skipped for hits | prefix must be identical; tenant isolation (`cache_salt`) |
+| Chunked prefill | always on (V1) | none | smooth ITL | chunk size = `max_num_batched_tokens` |
+| Speculative decoding | `--speculative-config '{...}'` (draft model / n-gram / EAGLE / MTP) | draft weights + KV | lower ITL at low batch; none/negative at high batch | acceptance rate depends on text; adds startup complexity |
+| LoRA adapters | `--enable-lora --lora-modules name=path --max-loras N` | adapter slots | small overhead | adapter name = `model` in the request; per-tenant routing |
+| Structured outputs | `response_format` / `guided_*` | grammar state | compile cost for new schemas (`deferred` waiting reason) | first request with a new schema is slow |
+| Multimodal | model-dependent | encoder activations, `mm` cache | encoder time in TTFT | `--limit-mm-per-prompt`; image tokens count against context |
+| Long context | `--max-model-len` > training length + RoPE scaling | KV per sequence ↑ | prefill O(n²) attention cost | `VLLM_ALLOW_LONG_MAX_MODEL_LEN` risk (section 3) |
+
+## 21. Failure catalog (symptom → first check → usual cause)
+
+| Symptom | First check | Usual cause |
+|---|---|---|
+| Container restarts every 1-2 min | `docker logs` first ERROR; `kubectl describe` (OOMKilled? probe?) | startup arithmetic (section 3), liveness killing a slow start, host-RAM OOM kill (not GPU) |
+| `OutOfMemoryError` at startup | which allocation: weights (model too big for the GPU/TP) or activation profiling | model > GPU; `max_num_batched_tokens` too large; other process on GPU |
+| OOM after hours | KV usage ~1.0 and `util 0.95+`; non-torch growth | util too high; fragmentation; a long-context outlier request |
+| Every request 400 `maximum context length` | request token count vs `max_model_len` | client sends more than the cap; system prompt grew; chat template adds tokens |
+| 5xx / connection reset under load | engine log, `num_requests_waiting`, gateway timeouts | queue so long clients time out; engine crash (XID) |
+| TTFT fine at 1 user, awful at 20 | waiting, queue time, KV, prefill share | seq cap or KV binding; long prompts monopolizing steps |
+| Throughput flat when load rises | `generation_tokens_total` rate vs `running` | preemption recompute; CPU-bound API server/tokenizer; GPU throttling (module 09) |
+| Output differs from other engine/provider | `generation_config` defaults, chat template, dtype cast, quantization | sampling defaults from the model's `generation_config.json`; template mismatch |
+| Tool calls come back as plain text | `--enable-auto-tool-choice`/`--tool-call-parser` present and right for the family? | missing/wrong parser; model too small (module 07) |
+| Hit rate 0 on a shared system prompt | first 100 tokens of two requests | timestamp/ID at the top; block size; eviction |
+| Pods Pending | `nvidia.com/gpu` capacity, taints | module 09 |
+| Slow start on new node | weights read time, image pull | cold NFS, no node cache |
+
+## 22. Worked exercises (answers in `.tutor/answers.md` follow the same method)
+
+1. Qwen2.5-7B (28 layers, 4 KV heads, head_dim 128) bf16, A10G 24 GiB, util 0.90, activations+overhead 2 GiB. KV/token = 57,344 B. Weights 15.2 GB = 14.2 GiB → budget 21.6 GiB − 14.2 − 2 = 5.4 GiB = 5.8e9 B → ~101,000 tokens. At `max_model_len 32768` max concurrency 3.1x. With FP8 KV: ~202,000 tokens, 6.2x.
+2. A team reports "vLLM only uses 60% of the GPU memory". They set `--gpu-memory-utilization 0.6`. What is unused? (Answer: they asked for it; the unused 40% is simply not claimed; KV pool is smaller; raise it or run a second model there.)
+3. TTFT p95 doubled after a deploy; `kv_cache_usage_perc` 0.97, preemptions rate 3/s, waiting 25. Diff of `non-default args` shows `--max-num-seqs 256` (was 64) and prefix caching disabled in the new template. Explain the chain and the fix (restore seq cap sized from KV; re-enable prefix caching; capstone scenario 2).
+4. Why can lowering `--max-num-batched-tokens` from 8192 to 512 increase p95 TTFT for 4k-token prompts but decrease p95 ITL? (A 4k prompt now needs 8+ steps interleaved with decode, so its first token comes later; decoders stop being stalled behind a 4k-token prefill step.)
+5. Compute `kv_cache_max_concurrency` for Llama-3-70B FP8 weights on 2×80 GB TP=2, util 0.90, `max_model_len 32768`, bf16 KV: budget 2×72 = 144 GB − 70 weights − ~8 overhead ≈ 66 GB → 66e9 / 327,680 ≈ 201,000 tokens → 6.1x. With FP8 KV: 12.3x.
+
+## 23. Glossary and quick numbers
+
+| Term | Meaning |
+|---|---|
+| Block / page | fixed-size group of KV slots (`--block-size`, 16 tokens on CUDA); unit of allocation, hashing and eviction |
+| `num_gpu_blocks` | blocks in the KV pool after profiling; `kv_cache_size_tokens = blocks × block_size` |
+| Null block | reserved block 0, never allocated to requests (the mock and the engine both exclude it from the usable count) |
+| Prefill / decode | processing the prompt (compute-bound, parallel over tokens) / producing one token per step (memory-bound) |
+| Chunked prefill | splitting a long prompt across steps under the token budget so decodes keep running |
+| Preemption (recompute) | freeing a running request's blocks and re-prefilling it later |
+| TTFT / ITL / E2E / TPOT | time to first token / gap between tokens / whole request / mean time per output token |
+| Goodput | throughput of requests that met their SLO (the number that matters when tuning) |
+| Prefix cache | reuse of KV blocks of identical prompt prefixes (hash chain over full blocks) |
+| TP / PP / DP / EP | tensor / pipeline / data / expert parallelism |
+
+Numbers worth remembering: KV/token bf16 — 8B GQA 128 KiB, 70B GQA 320 KiB, 7B (4 KV heads) 56 KiB, 0.5B 12 KiB; 1 GiB of KV holds 8,192 tokens of Llama-3-8B; A100 80 GB decode floor for 8B ≈ 8 ms/token-step; H100 ≈ 5 ms; prefill of 4,000 tokens for 8B on A100 ≈ 0.5 s; vLLM default utilization 0.92 (pinned docs); 8 KV heads → TP ∈ {1,2,4,8}.
+
+## 24. Checklist before you put a vLLM config into production
+
+1. `non-default args` reviewed against the template; image tag pinned and mirrored; `--served-model-name` equals the alias in the gateway.
+2. `--max-model-len` = product requirement + margin; `kv_cache_size_tokens` and `max_concurrency` recorded in the runbook.
+3. `--gpu-memory-utilization` chosen with headroom (0.90 default posture; lower on shared GPUs); no other GPU tenants unless intended.
+4. `--max-num-seqs` sized from the KV ceiling; load-tested at 1.5× peak with zero preemptions.
+5. Startup probe sized for the cold-start measured on that node type; `/dev/shm` configured; weights read-only and offline.
+6. Metrics scraped; alerts: `EngineDown`, `TTFTHigh`, `QueueGrowing`, `KVCacheNearFull` (with queue/preemption condition), `PreemptionsSustained`.
+7. Gateway limits in front (per-team parallelism, max tokens, context-length checks) so one client cannot fill the queue or the KV.
+8. Logging policy: prompts not logged by default; access restricted; retention set.
+9. Rollback plan: previous image + previous args kept; model artifact immutable (digest).
+10. Failure drill done once: kill a replica, fill KV on purpose, remove a node's GPU memory (task 3.8) — and the on-call knows which metric shows each.
+
 ---
 
 ## Key takeaways

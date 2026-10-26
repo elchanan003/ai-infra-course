@@ -1,10 +1,8 @@
 # 01 — Lab: size a model, watch batching and caching, compare quantisations
 
-DRAFT (phase 1): task design, criteria ids and ownership are fixed; items marked (P2) are confirmed in phase 2 against `platform/stack/README.md` and `mock/README.md`.
-
 Time: ~3.5 h. Guidance level: moderate (formulas are in theory sections 2 and 6; you do the work). Profiles: `llm mock`. **Real:** llama.cpp on CPU. **Simulated:** mock-vllm (used for an optional look at vLLM metrics). **Calculated:** all GPU, VRAM, TP and MIG results — there is no GPU on this host. Units are GiB (2^30) everywhere.
 
-Lab containers you start yourself must be labelled `course=aiinfra` and named `aiinfra-lab01-*`; the given `lab/bin/run-llama.sh` does that and publishes on a reserved port (P2). Timing is noisy on this shared 4-core host: tasks use token counters, cache counters and file sizes, and timing only as a ratio.
+Lab containers you start yourself must be labelled `course=aiinfra` and named `aiinfra-lab01-*`; the given `lab/bin/run-llama.sh` does that and publishes on `127.0.0.1:18120` (module 01 owns 18120-18124). Timing is noisy on this shared 4-core host: tasks use token counters, cache counters and file sizes, and timing only as a ratio.
 
 ## Starting state
 `./prepare-lab.sh` converges to `llm mock`, creates a hidden per-learner variant in `.state/` (which model geometry and GPU in 1.2/1.6, which model pair in 1.5, which long document in 1.4), and writes the variant inputs into `lab/variant/` (model `config.json` files, GPU table). It never prints answers.
@@ -35,7 +33,7 @@ Lab containers you start yourself must be labelled `course=aiinfra` and named `a
 | `fits(model, gpu_gib, util, tp, seq_len, n_seqs, kv_bytes, overhead_gib=2.0)` | `(weights + KV)/tp + overhead <= gpu_gib*util` |
 | `min_tp(model, gpu_gib, util, seq_len, n_seqs, kv_bytes, overhead_gib=2.0)` | smallest TP in (1, 2, 4, 8) that divides both `num_attention_heads` and `num_key_value_heads` and fits; `None` if none |
 
-`model` is a dict like `{"params_b", "bytes_per_param", "layers", "num_attention_heads", "num_key_value_heads", "head_dim"}` (the given `lab/variant/` JSON shows the exact keys (P2)). `head_dim` may be absent in a real `config.json`: derive it (`hidden_size / num_attention_heads`).
+`model` is a dict like `{"params_b", "bytes_per_param", "layers", "num_attention_heads", "num_key_value_heads", "head_dim"}` (`lab/variant/*.json` show the exact keys). `head_dim` may be absent in a real `config.json`: derive it (`hidden_size / num_attention_heads`).
 
 Steps/hints: start from the formula in theory 2; check by hand against the worked-examples table (Llama-3-8B: 128 KiB per token). Test with the numbers from the quiz.
 
@@ -56,13 +54,13 @@ Success criteria (reference computed by verify from the same variant, ±2%):
 ## Task 1.3 — Slots, batching and what `-np` does to context
 **Goal:** see continuous batching on a real engine and learn that slots share the context.
 
-`lab/bin/run-llama.sh` starts a chat llama-server with the settings in `lab/llama.env` (`CTX`, `PARALLEL`, `THREADS`, model file) on the reserved lab port, with `--metrics` on.
+`lab/bin/run-llama.sh` starts a llama-server (container `aiinfra-lab01-llama`) with the settings in `lab/llama.env` (`CTX` = total context, `PARALLEL`, `THREADS`, `MODEL`) on `127.0.0.1:18120`, with `--metrics` on. You can override a setting for one run: `PARALLEL=1 lab/bin/run-llama.sh`; `lab/bin/run-llama.sh stop` removes it.
 1. Starter settings give each slot too little context for the variant's prompts. Look at `GET /slots` and `GET /props`, change `lab/llama.env` so **4 slots can each take a ~1800-token prompt plus 64 generated tokens**.
-2. Complete `lab/bench.py`: send N concurrent short generations, and report **aggregate generation throughput = Δ`llamacpp:tokens_predicted_total` / Δwall time** read from `/metrics` (not from your own token estimates).
-3. Run it with `PARALLEL=1` and `PARALLEL=4` (same N, same `max_tokens`) and record both numbers and the ratio in `lab/answers/batching.json` with a one-line `why` chosen from the enum in the template.
+2. Complete `lab/bench.py` (usage `bench.py --url http://127.0.0.1:18120 --concurrency 4 --max-tokens 32`, prints JSON with `tokens_per_s`): it sends N concurrent generations, and report **aggregate generation throughput = Δ`llamacpp:tokens_predicted_total` / Δwall time** read from `/metrics` (not from your own token estimates).
+3. Run it against `PARALLEL=1` and `PARALLEL=4` servers (same N, same `max_tokens`) and record both numbers and the ratio in `lab/answers/batching.json` with a one-line `why` chosen from the enum in the template.
 
 Success criteria:
-- `1.3.1` verify starts a server with **your** `llama.env`, sends 4 concurrent ~1800-token prompts: all 200 and the prompts are not truncated (`usage.prompt_tokens` close to the sent length).
+- `1.3.1` verify starts a server with **your** `llama.env` (model, CTX, PARALLEL, THREADS), sends 4 concurrent ~1800-token prompts: all 200 and the prompts are not truncated (`usage.prompt_tokens` close to the sent length).
 - `1.3.2` your `bench.py`, run by verify against its own two servers, reports a throughput within a factor 1.5 of verify's own counter-based measurement (median of 3, one retry).
 - `1.3.3` the ratio you recorded is within 0.6-1.6x of verify's measured ratio, and the ratio is above 1.2; `why` is the right enum value.
 
@@ -71,22 +69,22 @@ Concept: theory 3, 3.1. Timing rule: ratios only.
 ## Task 1.4 — Prompt cache: make a prefix cache-friendly
 **Goal:** see `cached_tokens`, then fix a prompt layout that defeats the cache.
 
-`lab/prompt_template.py::build_messages(system, doc, question, now, request_id)` returns the chat messages a hypothetical assistant sends. The starter puts `Current time` and the request id **before** the shared system prompt and document.
+`lab/prompt_template.py::build_messages(system, doc, question, now, request_id)` returns the chat messages a hypothetical document-QA assistant sends (`lab/variant/system.txt` and `doc.txt` are your system prompt and shared document). The starter puts `Current time` and the request id **before** the shared system prompt and document.
 1. Send two requests that differ only in `question` through your builder to the cache-enabled lab server and read `usage.prompt_tokens_details.cached_tokens` (and `/metrics` `prompt_tokens_cached_total`).
 2. Fix the builder so the stable prefix is cached and volatile fields come last.
-3. Use `POST /tokenize` to count the stable-prefix tokens of the variant document and record `stable_prefix_tokens` and your two observed `cached_tokens` values (before and after the fix) in `lab/answers/cache.json`.
+3. Use `POST /tokenize` on `system + "\n\n" + doc` (the variant files) to count the stable-prefix tokens and record `stable_prefix_tokens` and your two observed `cached_tokens` values (before and after the fix) in `lab/answers/cache.json`.
 
 Success criteria:
 - `1.4.1` verify calls **your** `build_messages` with fresh nonces for two requests and the second reports `cached_tokens` ≥ 80% of the stable-prefix tokens (live counters).
 - `1.4.2` the builder output is deterministic for the stable part (two calls with different volatile values share the same leading messages byte for byte up to the question).
-- `1.4.3` `stable_prefix_tokens` within ±2 tokens of verify's `/tokenize` count; `cached_tokens_before` is ≤ 10% of it and `cached_tokens_after` ≥ 80%.
+- `1.4.3` `stable_prefix_tokens` within 3% of verify's `/tokenize` count; `cached_tokens_before` is ≤ 10% of it and `cached_tokens_after` ≥ 80%.
 
 Concept: theory 4.
 
 ## Task 1.5 — Quantisation: sizes, tensor types, speed
 **Goal:** measure what Q4_K_M versus Q8_0 really means on this CPU.
 
-`lab/variant/models.txt` names the GGUF pair for your variant (chat or coder 0.5B: Q4_K_M and Q8_0, in `~/.cache/aiinfra-course/models/`).
+`lab/variant/models.txt` names the GGUF pair for your variant (`Q4=` and `Q8=` file names in `~/.cache/aiinfra-course/models/`; chat or coder 0.5B).
 1. Exact file sizes in bytes (`stat`).
 2. Start each with `run-llama.sh` and read the load log (`docker logs`): file type (`ftype`), the tensor type counts (which of q4_K / q6_K / q8_0 / f32), and the reported bits per weight.
 3. Measure prompt-processing speed for both with a long prompt and `cache_prompt: false` (use `llamacpp:prompt_tokens_seconds` or Δ`prompt_tokens_total`/Δ`prompt_seconds_total`), and note resident memory (`docker stats --no-stream`).
@@ -111,14 +109,14 @@ Success criteria (±2% on counts):
 ## Task 1.7 — Troubleshooting (planted): the team calculator that is "always a bit off"
 **Goal:** debug a calculator with several independent defects.
 
-`lab/team_calc.py` is a colleague's script (`python3 team_calc.py MODEL.json --gpu 80 --tp 2 ...`). It disagrees with your `sizing.py` and with the hand-computed Llama-3-8B example in theory. Find out why, **fix it in place**, and keep its CLI and output format. (There is more than one defect.)
+`lab/team_calc.py` is a colleague's script (`python3 lab/team_calc.py lab/variant/large.json --gpu 80 --tp 2 --seq 8192 --seqs 16 --kv-bytes 2`; it prints a JSON object). It disagrees with your `sizing.py` and with the hand-computed Llama-3-8B example in theory. Find out why, **fix it in place**, and keep its CLI and output format. (There is more than one defect.)
 
 Success criteria:
 - `1.7.1` verify runs your fixed `team_calc.py` on 6 hidden cases (GQA model, FP8 KV, TP 2/4, a model that does not fit) and the numbers agree with the reference within 2%.
 - `1.7.2` the CLI contract still holds (same flags and the same keys in the JSON it prints).
 
 ## Optional 1.8 — vLLM metrics on the simulator (unscored)
-Point `curl` at mock-vllm A (`/metrics`), send a few concurrent requests, and find `vllm:num_requests_running`, `vllm:kv_cache_usage_perc`, `vllm:num_preemptions_total`. Compare the KV capacity it reports with what `sizing.py` says for the same `config.json`. (Contract: `mock/README.md`.) Module 03 builds on this.
+Point `curl` at mock-vllm A (`/metrics`), send a few concurrent requests, and find `vllm:num_requests_running`, `vllm:kv_cache_usage_perc`, `vllm:num_preemptions_total`. Compare the KV capacity it reports (`GET /admin/stats` -> `capacity`, and `vllm:cache_config_info`) with what `sizing.py` says for the same `config.json` (fixtures in `mock/models/`). Contract: `mock/README.md` section 3.2. Module 03 builds on this.
 
 ## Wrap-up
 `./verify.sh` (about 6-8 minutes: it starts and stops its own llama-server instances), `./cleanup.sh`, `./verify-clean.sh`.

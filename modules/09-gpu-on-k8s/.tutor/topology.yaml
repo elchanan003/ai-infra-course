@@ -1,0 +1,15 @@
+# Reference GPU topology used by verify.sh for tasks 9.5-9.7/T (independent of your node-gpu.sh), for `platform/k8s.sh gpu-patch FILE`.
+# Same numbers as lab/k8s/inventory.txt; both GPU nodes tainted. SIMULATED (node-status patch).
+nodes:
+  aiinfra-worker:
+    gpus: 2
+    product: NVIDIA-A100-SXM4-80GB
+    memory_mib: 81920
+    mig_capable: true
+    taint: true
+  aiinfra-worker2:
+    gpus: 1
+    product: NVIDIA-L4
+    memory_mib: 23034
+    mig_capable: false
+    taint: true

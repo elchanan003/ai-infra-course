@@ -1,0 +1,2 @@
+# Task 3.2: this config crash-loops. Fix it without dropping --max-model-len below the floor (slo/SLO.md).
+--model /models/llama-3.1-8b --served-model-name chat --max-model-len 131072 --gpu-memory-utilization 0.90 --max-num-seqs 64

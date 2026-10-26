@@ -1,0 +1,2 @@
+# candidate config 3 (model/GPU: see gpu.yaml in this folder)
+--model /models/llama-3.1-8b --served-model-name chat --max-model-len 81920 --gpu-memory-utilization 0.9 --max-num-seqs 48

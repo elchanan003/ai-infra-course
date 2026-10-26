@@ -1,0 +1,2 @@
+cleanup: kind cluster aiinfra removed, compose stack down, .state/ removed; lab/ untouched
+exit=0

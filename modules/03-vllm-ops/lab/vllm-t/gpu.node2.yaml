@@ -1,0 +1,4 @@
+# SIMULATED GPU for mock-vllm (contract: mock/README.md section 2). node-2: another process holds this much GPU memory.
+name: A10G
+count: 1
+other_process_gib: 3.0   # memory held by another process at startup

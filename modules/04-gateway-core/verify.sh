@@ -29,11 +29,12 @@ c=$(embed_req "$GW" "$MASTER"); dim=$(jq -r '.data[0].embedding|length' "$TMP/bo
 bdim=$(curl -sS --max-time 20 "$LLAMA_EMBED_URL/v1/embeddings" -H 'Content-Type: application/json' -d '{"model":"embed","input":"hello"}' | jq -r '.data[0].embedding|length' 2>/dev/null)
 [ "$c" = 200 ] && [ -n "$dim" ] && [ "$dim" = "$bdim" ] && pass 4.1.3 "embedding via alias 'embed' has the backend's dimension ($dim)" \
   || fail 4.1.3 "embedding via alias returned HTTP $c dim=${dim:-none} (backend $bdim) - alias or api_base of the embedding model"
-c=$(admin POST /key/generate "$(jq -nc --arg a "verify-probe-$NONCE" '{key_alias:$a}')" | jq -r '.key // empty')
-if [ -n "$c" ]; then pass 4.1.4 "/key/generate works (database connected)"; admin POST /key/delete "$(jq -nc --arg a "verify-probe-$NONCE" '{key_aliases:[$a]}')" >/dev/null
-else fail 4.1.4 "/key/generate failed - keys need a database; see the gateway log for the DB error"; fi
+pk=$(admin POST /key/generate "$(jq -nc --arg a "verify-probe-$NONCE" '{key_alias:$a,models:["chat"]}')" | jq -r '.key // empty')
+if [ -n "$pk" ]; then c=$(req "$GW" "$pk" chat "probe $NONCE"); admin POST /key/delete "$(jq -nc --arg a "verify-probe-$NONCE" '{key_aliases:[$a]}')" >/dev/null
+  [ "$c" = 200 ] && pass 4.1.4 "a generated key with models [chat] can call chat" || fail 4.1.4 "a generated key with models [chat] got HTTP $c on chat - alias/model_list or backend problem"
+else fail 4.1.4 "/key/generate failed - see the gateway log"; fi
 if ! passed 4.1.4; then
-  for id in 4.2.1 4.2.2 4.2.3 4.2.4 4.3.1 4.3.2 4.3.3 4.3.4 4.4.1 4.4.2 4.4.3 4.4.4 4.6.1 4.6.2 4.7.1 4.7.2 4.7.3; do blocked "$id" "needs 4.1.4 (database)"; done
+  for id in 4.2.1 4.2.2 4.2.3 4.2.4 4.3.1 4.3.2 4.3.3 4.3.4 4.4.1 4.4.2 4.4.3 4.4.4 4.6.1 4.6.2 4.7.1 4.7.2 4.7.3; do blocked "$id" "needs 4.1.4 (working aliases and keys)"; done
   KEYS_OK=0
 else KEYS_OK=1; fi
 

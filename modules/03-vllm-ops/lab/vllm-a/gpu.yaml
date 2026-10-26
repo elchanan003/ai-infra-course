@@ -1,0 +1,4 @@
+# SIMULATED GPU for mock-vllm (contract: mock/README.md section 2). Node-1: a small monitoring agent holds 0.5 GiB.
+name: A10G
+count: 1
+other_process_gib: 0.5   # memory held by another process at startup

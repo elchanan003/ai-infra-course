@@ -39,6 +39,11 @@ kubectl patch node N --subresource=status --type=json -p '[{"op":"add","path":"/
 kubectl taint nodes N nvidia.com/gpu=present:NoSchedule
 ```
 
+## Health signals that cost nothing
+Device plugin marks a device Unhealthy on critical XIDs (app-class 13/31/43/45 ignored): node `allocatable` drops below `capacity`, running pods are NOT evicted. Alert: `kube_node_status_allocatable{resource="nvidia_com_gpu"} < kube_node_status_capacity{resource="nvidia_com_gpu"}` for >5m. Also `count by (Hostname) (DCGM_FI_DEV_GPU_TEMP) < N_gpus` (series vanished = GPU fell off the bus).
+dcgm-exporter: default interval 30 s (`DCGM_EXPORTER_INTERVAL`), field list in a CSV ConfigMap, pod labels need the pod-resources socket mounted.
+Pending histogram order: TaintToleration -> NodeAffinity/nodeSelector -> NodeResourcesFit (first failing filter per node is counted).
+
 ## nvidia-smi
 `nvidia-smi -L` (UUIDs; UUID is the stable id, index can change), `nvidia-smi --query-gpu=index,uuid,temperature.gpu,memory.used,memory.total,power.draw --format=csv`, `nvidia-smi -q -d PERFORMANCE` (throttle reasons), `dmesg | grep -i xid`.
 Table: Temp C, Pwr usage/cap W, Memory-Usage MiB, GPU-Util %, Volatile Uncorr. ECC (non-zero = serious).

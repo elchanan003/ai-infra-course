@@ -6,12 +6,12 @@ Time: ~4 h of work plus a few minutes of waiting for `verify.sh` (it generates i
 
 ## Starting state
 
-`prepare-lab.sh` converges profiles `gw llm mock obs` (LiteLLM + Postgres + Valkey, llama.cpp, mock-vllm A/B, Prometheus, Grafana), points Prometheus at `lab/prometheus/` and Grafana at `lab/grafana/`, and seeds hidden per-learner variant data in `.state/`. Part L (Langfuse) is a separate gate: `./prepare-lab.sh langfuse` runs profile `lf` **alone** with a minimal gateway + mock (it cannot share the host with `llm`), and `./verify.sh langfuse` grades it.
+`prepare-lab.sh` converges profiles `gw llm mock obs` (LiteLLM + Postgres + Valkey, llama.cpp, mock-vllm A/B, mock-dcgm, Prometheus, Grafana), points Prometheus at `lab/prometheus/` and Grafana's dashboard folder at `lab/grafana/dashboards/`, and seeds hidden per-learner variant data in `.state/`. Part L (Langfuse) is a separate gate: `./prepare-lab.sh langfuse` runs profile `lf` **alone** with a minimal gateway + mock (it cannot share the host with `llm`), and `./verify.sh langfuse` grades it.
 
 ```bash
 ./prepare-lab.sh
-# Prometheus  http://localhost:18090   Grafana http://localhost:18030 (credentials: platform/stack/README.md)
-# reload after editing rules/config:   curl -X POST localhost:18090/-/reload   (lifecycle API is enabled in the lab)
+# Prometheus  http://localhost:18090   Grafana http://localhost:18030 (admin/admin)
+# reload after editing rules/config:   platform/stack.sh reload-prometheus   (= POST /-/reload)
 ```
 Useful tools (Prometheus v3.5.0 image): `promtool check rules`, `promtool check config`, `promtool test rules`:
 ```bash
@@ -27,11 +27,10 @@ docker run --rm --entrypoint promtool -v "$PWD/lab/prometheus:/w:ro" prom/promet
 | `lab/prometheus/rules/ai-recording.yml` | yours — task 8.2 (starter: empty groups) |
 | `lab/prometheus/rules/ai-alerts.yml` | yours — task 8.4 (starter: empty groups) |
 | `lab/prometheus/tests/*.test.yml` | yours, optional: write your own promtool tests (`verify.sh` brings its own) |
+| `lab/reconcile.sh` | yours — task 8.5 (starter prints `REPLACE_ME`) |
 | `lab/grafana/dashboards/ai-serving.json` | yours — tasks 8.3 and 8.6 (starter: one **broken** TTFT panel + empty rows) |
-| `lab/grafana/provisioning/` | given (datasource uid `prometheus`, dashboard provider) |
-| `lab/answers/tokens.env` | yours — task 8.5 |
-| `lab/litellm/config.d/langfuse.yaml` | yours — task 8.7 (part L only) |
-| `lab/tools/` (`traffic.sh`, `snapshot-prom.sh`) | given — do not modify |
+| `lab/litellm/config.yaml` | yours — task 8.7 (part L only) |
+| `lab/tools/` (`traffic.sh`, `restart-litellm.sh`) | given — do not modify |
 
 ---
 
@@ -40,7 +39,7 @@ docker run --rm --entrypoint promtool -v "$PWD/lab/prometheus:/w:ro" prom/promet
 **Goal:** Prometheus scrapes vLLM (mock A and B), llama.cpp chat and LiteLLM and you can prove the series you will depend on exist.
 
 Steps/hints:
-1. Look at each target's raw `/metrics` with curl first (ports in `CONVENTIONS.md`; from inside the Docker network use the service names listed in `platform/stack/README.md`). Note the paths and flags: llama.cpp needs `--metrics` (already on), LiteLLM serves `/metrics/`.
+1. (verify reloads Prometheus for you; you reload it while working with `platform/stack.sh reload-prometheus`.) Look at each target's raw `/metrics` with curl first (ports in `CONVENTIONS.md`; from inside the Docker network use the service names listed in `platform/stack/README.md`). Note the paths and flags: llama.cpp needs `--metrics` (already on), LiteLLM serves `/metrics/`.
 2. Add jobs `vllm` (two targets, label `replica` = `a`/`b`), `litellm`, `llamacpp` to `lab/prometheus/prometheus.yml`, 5 s scrape interval (lab-only).
 3. `promtool check config`, reload, open Status → Targets.
 4. Confirm names exist: `count({__name__=~"vllm:.+"})`, `litellm_proxy_total_requests_metric_total`, `llamacpp:tokens_predicted_total` — send one chat request through LiteLLM first so request-driven series exist.
@@ -59,9 +58,8 @@ Steps/hints:
 3. Write a tiny promtool test of your own with a synthetic histogram to be sure the rule returns what you computed by hand.
 
 Success criteria
-- `8.2a` verify's synthetic `promtool test rules` (histogram series with a known p95, two replicas, plus a bucket-boundary case) passes against your rules.
-- `8.2b` the live recorded p95 TTFT equals verify's own direct `histogram_quantile` query on the live data within ±10% (verify drives deterministic load on mock A/B).
-- `8.2c` the generation-tokens rate equals the sum over both replicas within ±10% (replicas are not averaged).
+- `8.2a` verify's synthetic `promtool test rules` (two replicas with different volume and speed, a known combined p95/ITL p95 and token rate) passes against your rules (it also checks the ITL and token-rate rules).
+- `8.2b` the live recorded p95 TTFT equals verify's own direct `histogram_quantile` query on the live data within ±10% (verify reloads Prometheus and drives its own load first).
 
 ## Task 3 (8.3) — Dashboard as code
 
@@ -88,38 +86,41 @@ Success criteria (verify sends traffic with two different keys, then executes ev
 | `QueueGrowing` | waiting requests > 5 for `3m`, severity warning |
 
 Steps/hints:
+0. Contract: a firing alert carries exactly the labels `alertname`, `model_name`, `severity`, `team` (aggregate with `by (model_name)`).
 1. Express "and (…or…)" with PromQL set operators (`and on(model_name)`), mind that each side must carry matching labels.
 2. A steady 0.95 KV with an empty queue must stay quiet — that is the point of the compound condition.
 3. Write promtool tests: one fire case and one quiet case per alert (your own tests are optional but save time).
 
 Success criteria
-- `8.4a` KVCacheNearFull: fires in verify's synthetic test with correct labels/annotations; **quiet** for KV 0.95 steady with empty queue and zero preemptions.
+- `8.4a` KVCacheNearFull: fires in verify's synthetic test with labels `severity=warning team=llm-platform` after its `for: 2m` (also when only preemptions, not the queue, are non-zero), and is quiet for high queue/preemptions with KV 0.5; **quiet** for KV 0.95 steady with empty queue and zero preemptions.
 - `8.4b` TTFTHigh: fires only after `for` elapses (quiet before), quiet below SLO.
-- `8.4c` QueueGrowing: fires at waiting=8 for 4m; quiet at waiting=3 and for a 1-minute spike.
-- `8.4d` live: verify injects the mock `kv_pressure` fault with load; KVCacheNearFull reaches `firing` within a bounded window (≤ `for` + 90 s) and resolves after the fault is removed.
+- `8.4c` QueueGrowing: fires at waiting=8 after `for: 3m`; quiet at waiting=3 and for a 1-minute spike.
+- `8.4d` live: verify injects the mock `kv_pressure` fault with 40 concurrent clients; KVCacheNearFull reaches `firing` within 240 s.
+- `8.4e` the firing alert's rendered annotations: `summary` contains the value, `runbook_url` is an http(s) URL.
+- `8.4f` after the fault and load are removed the alert stops firing within 150 s.
 
 ## Task 5 (8.5) — Token reconciliation
 
-**Goal:** after a verify-style traffic run, reconcile tokens across the gateway spend logs, LiteLLM's Prometheus counters and the engine counters, then explain the gap.
+**Goal:** write `lab/reconcile.sh START END KEY_ALIAS` that reconciles tokens for one traffic run across the gateway spend logs, LiteLLM's Prometheus counters and the engine counters, and explains the gap. Verify runs fresh traffic and then **executes your script** on it.
 
 Steps/hints:
-1. `lab/tools/traffic.sh` sends a fixed, deterministic burst through the gateway **and** (hidden to you) some traffic straight to the engine; it prints the start/end timestamps.
-2. Wait for the spend flush (lab: ~5 s; production ~60 s) before reading spend logs: `GET /spend/logs?start_date=...&end_date=...` (or the DB through the LiteLLM API) — poll until the row count is stable.
-3. Compute the same window in Prometheus: `increase(litellm_total_tokens_metric_total[...])` and `increase(vllm:prompt_tokens_total[...]) + increase(vllm:generation_tokens_total[...])`. Use `@ <end>` or an instant query at the end timestamp.
-4. Fill `lab/answers/tokens.env`: `GATEWAY_TOKENS`, `PROM_GATEWAY_TOKENS`, `ENGINE_TOKENS`, `GAP_CAUSE` ∈ `bypass | cache | lag | restart | none`, and the evidence field for your cause: `BYPASS_REQUESTS=<number of engine requests with no gateway counterpart>` (or `0`).
+1. `./lab/tools/traffic.sh` shows what a run looks like: sequential requests through the gateway with a fresh key alias, plus (hidden to you) some engine traffic that does not go through the gateway. It prints `START`, `END`, `KEY_ALIAS`.
+2. Spend logs are batch-written (lab ~5 s lag; production ~60 s): your script reads them for the alias in the window (Postgres `LiteLLM_SpendLogs`, or the LiteLLM spend API); verify waits for the flush before calling you, but while experimenting wait yourself.
+3. Prometheus: the alias is unique to the run, so the series starts at zero: compare an instant query at `END+12` with one at `START` (instant queries are exact; `increase()` extrapolates at the window edges and can be off by several %). Engine = mock A (`replica="a"`): prompt + generation token counters, same two instants.
+4. Print the five `KEY=VALUE` lines listed in the starter. `BYPASS_REQUESTS` = engine requests the gateway never saw: derive it from the token gap and the tokens per gateway request.
 
 Success criteria
-- `8.5a` `GATEWAY_TOKENS` and `PROM_GATEWAY_TOKENS` match verify's values for the run within ±2%.
-- `8.5b` `ENGINE_TOKENS` matches within ±2%.
-- `8.5c` `GAP_CAUSE` and `BYPASS_REQUESTS` match the seeded variant (evidence-bound; guessing the enum without the count fails).
+- `8.5a` gateway tokens from the spend logs (±2%) and from the Prometheus counters (±3%) match the run.
+- `8.5b` engine tokens match within ±3%.
+- `8.5c` `GAP_CAUSE=bypass` and `BYPASS_REQUESTS` equals the exact hidden count (evidence-bound).
 
 ## Task 6 (8.6) — Troubleshooting: the flat TTFT panel
 
-**Scenario.** On-call says the starter dashboard's TTFT panel "never moves, even during the incident". Open `lab/grafana/dashboards/ai-serving.json` (starter panel `TTFT p95`), look at its query, inject latency (`curl -X POST localhost:18021/admin/fault -H 'Content-Type: application/json' -d '{"latency": ...}'`, see `mock/README.md` for the field format), and watch. Fix the query (and unit) so the panel is correct.
+**Scenario.** On-call says the starter dashboard's `TTFT p95` panel "never moves, even during the incident". Open `lab/grafana/dashboards/ai-serving.json` (starter panel `TTFT p95`), read its query, inject a slowdown for a while (`curl -X POST localhost:18021/admin/fault -H 'Content-Type: application/json' -d '{"latency_ms": 2000}'` plus some traffic; remove it with `DELETE`) and watch. Fix the query so the panel shows a real p95.
 
-Success criteria
-- `8.6a` the fixed panel query matches verify's reference quantile within ±10% on deterministic data.
-- `8.6b` positive/negative pair: with the mock `latency` fault the panel's value rises by ≥ 2× versus baseline (verify measures both on deterministic mode).
+Success criteria (promtool on synthetic series — deterministic — using **your** panel query)
+- `8.6a` on steady data your query returns the true combined p95 within ±10%.
+- `8.6b` it stays below 0.6 s when healthy and exceeds 2 s after 20% of the requests turn slow.
 
 ## Task 7 (8.7, part L) — Trace a request with Langfuse (separate gate)
 
@@ -128,8 +129,8 @@ Run alone: `./prepare-lab.sh langfuse` (profile `lf`, ~2.75 GB, takes a minute o
 **Goal:** LiteLLM sends a trace to Langfuse for each request, with the user and the token usage.
 
 Steps/hints:
-1. Add the callback in `lab/litellm/config.d/langfuse.yaml` (`litellm_settings.success_callback` / `failure_callback`) and the `LANGFUSE_*` variables (the file says where; the host is the in-network Langfuse web service).
-2. Restart LiteLLM (`./lab/tools/restart-litellm.sh`), send a chat completion with `"user": "<your-name>"` and `metadata.trace_name`.
+1. Add the callbacks in `lab/litellm/config.yaml` (`litellm_settings.success_callback` / `failure_callback`). The `LANGFUSE_*` variables are already in the LiteLLM container's environment (`platform/stack/README.md`).
+2. Restart LiteLLM (`./lab/tools/restart-litellm.sh`; verify restarts nothing, so do this yourself), send a chat completion with `"user": "<your-name>"` and `metadata.trace_name`.
 3. Query the Langfuse public API (`/api/public/traces?userId=...`, Basic auth `pk:sk`) — remember ingestion is asynchronous; poll.
 
 Success criteria (`./verify.sh langfuse`)

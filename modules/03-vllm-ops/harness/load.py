@@ -113,20 +113,44 @@ def burst(conn, model, specs, stream=False):
 
 
 def stats(conn):
-    st, t = get(conn, "/admin/stats")
-    return json.loads(t) if st == 200 else {}
+    for _ in range(5):
+        st, t = get(conn, "/admin/stats")
+        if st == 200:
+            try:
+                return json.loads(t)
+            except Exception:  # noqa
+                pass
+        time.sleep(0.2)
+    return {}
+
+
+def hist(text, name):
+    """cumulative bucket counts {le: count} of histogram `name` (summed over label sets)."""
+    out = {}
+    for line in text.splitlines():
+        if line.startswith(name + "_bucket{"):
+            m = re.match(r'^[^{]+\{([^}]*)\}\s+(\S+)', line)
+            le = dict(re.findall(r'(\w+)="([^"]*)"', m.group(1)))["le"]
+            out[le] = out.get(le, 0.0) + float(m.group(2))
+    return out
 
 
 def run_specs(conn, specs, label):
     model = model_name(conn)
     s0 = stats(conn)
-    p0 = metric(get(conn, "/metrics")[1], "vllm:num_preemptions_total") or 0
+    m0 = get(conn, "/metrics")[1]
+    p0 = metric(m0, "vllm:num_preemptions_total") or 0
+    h0 = {n: hist(m0, "vllm:" + n) for n in ("time_to_first_token_seconds", "inter_token_latency_seconds")}
+    g0 = metric(m0, "vllm:generation_tokens_total") or 0
     smp = Sampler(conn); smp.start()
     res = burst(conn, model, specs)
     time.sleep(0.15)
     smp.stop_ev.set(); smp.join(2)
     s1 = stats(conn)
-    p1 = metric(get(conn, "/metrics")[1], "vllm:num_preemptions_total") or 0
+    m1 = get(conn, "/metrics")[1]
+    p1 = metric(m1, "vllm:num_preemptions_total") or 0
+    h1 = {n: hist(m1, "vllm:" + n) for n in h0}
+    dh = {n: {le: h1[n].get(le, 0) - h0[n].get(le, 0) for le in h1[n]} for n in h1}
     codes = {}
     for st, _ in res:
         codes[str(st)] = codes.get(str(st), 0) + 1
@@ -138,6 +162,8 @@ def run_specs(conn, specs, label):
         "virtual_time_s": round((eng.get("virtual_time_s") or 0) - ((s0.get("engine") or {}).get("virtual_time_s") or 0), 3),
         "completion_tokens": sum((u or {}).get("completion_tokens", 0) for _, u in res),
         "prompt_tokens": sum((u or {}).get("prompt_tokens", 0) for _, u in res),
+        "generation_tokens_delta": int((metric(m1, "vllm:generation_tokens_total") or 0) - g0),
+        "ttft_buckets": dh["time_to_first_token_seconds"], "itl_buckets": dh["inter_token_latency_seconds"],
     }
 
 
@@ -171,7 +197,7 @@ def main():
     u = urllib.parse.urlparse(url); conn = (u.hostname, u.port or 80)
     if a.preset == "snapshot":
         model = model_name(conn)
-        params = json.load(open(a.params or os.path.join(HERE, "..", "slo", "load.json")))
+        params = json.load(open(a.params or os.path.join(HERE, "..", "lab", "slo", "load.json")))
         sizes = params["snapshot"]["prompt_tokens"]
         for i, pt in enumerate(sizes):  # sequential => deterministic (README 3.10)
             st, _ = post(conn, "/v1/chat/completions", {"model": model, "max_tokens": params["snapshot"]["max_tokens"],
@@ -181,7 +207,7 @@ def main():
         print(f"snapshot scenario done: {len(sizes)} sequential requests")
         return
     if a.preset:
-        params = json.load(open(a.params or os.path.join(HERE, "..", "slo", "load.json")))
+        params = json.load(open(a.params or os.path.join(HERE, "..", "lab", "slo", "load.json")))
         specs = specs_for(a.preset, params, a.seed)
         label = a.preset
     else:
@@ -194,7 +220,15 @@ def main():
         print(json.dumps(r))
     else:
         for k, v in r.items():
+            if k.endswith("_buckets"):
+                continue
             print(f"{k:18} {v}")
+        if r["virtual_time_s"]:
+            print(f"{'tok_per_virtual_s':18} {round(r['generation_tokens_delta'] / r['virtual_time_s'], 1)}")
+        i = r["itl_buckets"]
+        if i and i.get("+Inf") and "0.1" in i:
+            print(f"{'itl_le_0.1_share':18} {round(i['0.1'] / i['+Inf'], 3)}")
+        print("(raw histogram deltas of this run: --json -> ttft_buckets, itl_buckets)")
 
 
 main()

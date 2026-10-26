@@ -1,0 +1,2 @@
+# Task 3.6: tune --max-num-seqs (and --max-num-batched-tokens). Utilization and max length are FIXED by the platform team.
+--model /models/llama-3.1-8b --served-model-name chat --max-model-len 4096 --gpu-memory-utilization 0.30 --max-num-seqs 8

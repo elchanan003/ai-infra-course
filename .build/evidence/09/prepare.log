@@ -1,0 +1,46 @@
+ Container aiinfra-prometheus-1 Restarting 
+ Container aiinfra-prometheus-1 Started 
+SERVICE       STATUS
+grafana       Up 11 seconds (healthy)
+mock-dcgm-a   Up 11 seconds (healthy)
+mock-dcgm-b   Up 10 seconds (healthy)
+mock-vllm-a   Up 2 minutes (healthy)
+mock-vllm-b   Up 2 minutes (healthy)
+prometheus    Up 9 seconds (healthy)
+prepare-lab A: ready.  (SIMULATED GPUs: mock-dcgm containers, fake nvidia-smi; Prometheus and promtool are real)
+  fake nvidia-smi   bin/smi A -L        bin/smi B --query-gpu=index,uuid,temperature.gpu --format=csv
+  DCGM metrics      curl -s localhost:18031/metrics | grep DCGM_FI_DEV_GPU_TEMP     (node A; node B is :18032)
+  Prometheus        http://100.127.87.65:18090   rules: lab/prometheus/rules/dcgm-alerts.yml   reload: ../../platform/stack.sh reload-prometheus
+  Tasks 9.1-9.3 in lab.md.
+k8s.sh: WARN fs.inotify.max_user_instances=128 (<512); if pods fail with 'too many open files': sudo sysctl fs.inotify.max_user_instances=512
+k8s.sh: creating kind cluster 'aiinfra' (kindest/node:v1.33.1, 1 control-plane + 2 workers)
+Creating cluster "aiinfra" ...
+ • Ensuring node image (kindest/node:v1.33.1) 🖼  ...
+ ✓ Ensuring node image (kindest/node:v1.33.1) 🖼
+ • Preparing nodes 📦 📦 📦   ...
+ ✓ Preparing nodes 📦 📦 📦 
+ • Writing configuration 📜  ...
+ ✓ Writing configuration 📜
+ • Starting control-plane 🕹️  ...
+ ✓ Starting control-plane 🕹️
+ • Installing CNI 🔌  ...
+ ✓ Installing CNI 🔌
+ • Installing StorageClass 💾  ...
+ ✓ Installing StorageClass 💾
+ • Joining worker nodes 🚜  ...
+ ✓ Joining worker nodes 🚜
+ • Waiting ≤ 5m0s for control-plane = Ready ⏳  ...
+ ✓ Waiting ≤ 5m0s for control-plane = Ready ⏳
+ • Ready after 9s 💚
+Set kubectl context to "kind-aiinfra"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-aiinfra
+
+Have a nice day! 👋
+k8s.sh: loading python:3.12-slim into kind
+k8s.sh: ready: aiinfra-control-plane=Ready aiinfra-worker=Ready aiinfra-worker2=Ready 
+prepare-lab B: ready.  (kind: real Kubernetes scheduler; GPUs do NOT exist - you simulate the device plugin in task 9.4)
+  k = kubectl --context kind-aiinfra      nodes: aiinfra-control-plane, aiinfra-worker, aiinfra-worker2      namespace: gpu-lab
+  Tasks 9.4-9.7 and T in lab.md. verify.sh applies and deletes the pods/deployments itself; you may apply yours to experiment.
+exit=0

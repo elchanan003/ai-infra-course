@@ -21,9 +21,9 @@
 - 3.2 Any of: lower `--max-model-len` (>= floor), raise util (<= 0.95), `--kv-cache-dtype fp8`, lower `--max-num-batched-tokens`. Reference solution: fp8 KV + util 0.92 keeping 32768.
 - 3.3 Lower `--max-model-len` / fp8 KV / `--max-num-seqs` consistent with KV so that 8 sequences of the given length fit (compute tokens needed = 8 × (prompt+max_tokens)), and `--max-num-seqs >= 8`. Common wrong move: only raising `max-num-seqs` (running peak ok, preemptions > 0).
 - 3.4 p95 by interpolation from raw buckets (see quiz 10); verify tolerance ±10% of `histogram_quantile` on the same snapshot.
-- 3.5 KV_PEAK is the max of sampled `kv_cache_usage_perc` during the scripted ramp (fraction, 0..1); PREEMPTIONS is the counter delta; ORDER = `kv,queue,preempt,ttft` (or `kv,preempt,queue,ttft` for the high-seq-cap variant: verify checks against the evidence it computes).
-- 3.6 `--max-num-seqs` at the knee: high enough for throughput floor, low enough that p95 TTFT < SLO and zero preemptions. Reference value is variant-specific (~ 0.8 x KV ceiling).
-- 3.8 (T) util <= free fraction (reference 0.85-0.90 for the node with 10-15% other usage), keep `max_model_len`; also mention in answer why 0.98 failed.
+- 3.5 KV_PEAK = peak of `vllm:kv_cache_usage_perc` during the scripted burst (fraction; also `/admin/stats` `engine.kv_peak_usage`); PREEMPTIONS = counter delta; LIMITER = `seq-cap` when no preemption happened and KV stayed far below 1.0 (running == max_num_seqs, long queue), `kv` when KV hit ~1.0 with preemptions. Variants 0 and 2 are `kv` (cap 256), variant 1 is `seq-cap` (cap 8).
+- 3.6 `--max-num-seqs` between ~48 and ~68 passes (reference 56): below ~46 throughput < 1450; from ~76 preemptions start; utilization 0.30 and length 4096 must stay. Common mistake: raising util/length to "fix" it (3.6d).
+- 3.8 (T) util <= free fraction - 0.02 (reference 0.85), keep `--max-model-len 8192`; 0.98 fails on node-2 because free memory (24 GiB minus the other process) is below 0.98 x total at startup.
 
 ## Common mistakes
 - Using GB and GiB interchangeably (1 GiB = 1.0737 GB); 8192 tokens x 128 KiB is exactly 1 GiB.

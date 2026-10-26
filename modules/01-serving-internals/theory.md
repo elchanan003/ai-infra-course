@@ -203,6 +203,195 @@ Use a tool that replays realistic input/output length distributions at fixed con
 - **Production**: vLLM on GPUs with real CUDA OOM behaviour, NCCL, CUDA graphs, real preemption. Never quote a lab latency as an expected production number.
 - **Counters over clocks**: the lab is on a shared 4-core machine; wall-clock numbers move by +-30% between runs. Learn to read token counters, cache counters and file sizes (they are exact) and use timing only as a ratio between two runs made back to back.
 
+## 9. Worked sizing walk-throughs (do them with your own `sizing.py` afterwards)
+
+All results in GiB, overhead 2 GiB per GPU unless stated.
+
+**A. Llama-3.1-8B, BF16, one 24 GiB GPU, util 0.9, 8k context.**
+| Step | Value |
+|---|---|
+| weights | 8.03e9 × 2 B = 16.06e9 B = **14.96 GiB** |
+| budget | 24 × 0.9 = 21.6 GiB |
+| KV pool | 21.6 − 14.96 − 2.0 = **4.64 GiB** |
+| KV per token | 2 × 32 × 8 × 128 × 2 B = 131,072 B (128 KiB) |
+| tokens in the pool | 4.64 GiB / 128 KiB ≈ 38,000 tokens |
+| sequences of 8k | ≈ 4 |
+Verdict: it fits, four concurrent 8k users. The usual fixes if that is too few: FP8 weights (7.5 GiB → pool 12 GiB → ~12 sequences), FP8 KV (doubles the token count), 4k context (doubles the sequences), or a 40-80 GiB GPU.
+
+**B. Qwen2.5-7B, BF16, one 24 GiB GPU.** KV per token is 56 KiB (4 KV heads), less than half of Llama-3.1-8B's: the pool of 5.4 GiB holds ~100k tokens, i.e. ~12 sequences of 8k. Two models of the same "size" differ 2.3x in concurrency purely because of the KV-head count: always compute from `config.json`.
+
+**C. Llama-3.1-70B, FP16, KV FP16, 2 × 80 GiB, TP=2, util 0.92, 8k context, overhead 2 GiB per GPU.**
+| Step | Per GPU |
+|---|---|
+| weights / 2 | 130.4 / 2 = 65.2 GiB (the model uses 70.55e9 params: 131.4 GiB total, 65.7 per GPU) |
+| budget | 80 × 0.92 = 73.6 GiB |
+| KV pool | 73.6 − 65.7 − 2.0 ≈ **5.9 GiB per GPU** → 11.8 GiB across the pair |
+| KV per sequence (8k) | 320 KiB × 8192 = 2.5 GiB total = 1.25 GiB per GPU |
+| sequences | 5.9 / 1.25 ≈ **4** |
+Verdict: "fits" but four users. With FP8 weights: pool ≈ 38.5 GiB per GPU → ~30 sequences. With TP=4 FP16: per GPU weights 32.9 GiB, pool ≈ 38.7 GiB → ~30 sequences and half the per-token latency. Which is cheaper depends on GPU count, not on fit.
+
+**D. The same model on MIG.** A 7g.80gb slice is a whole 80 GiB GPU; a 3g.40gb slice holds an 8B FP8 model (7.5 GiB) plus KV for tens of sequences; a 1g.10gb slice holds a 3B-4B model with a short context or an embedding model. Slices cannot be pooled for one process, so MIG is for **many small models**, not for fitting a big one.
+
+## 10. Reading an engine: logs and metrics you should recognise
+
+### 10.1 vLLM start-up (GPU), lines to look for
+```
+Loading weights took 14.2 seconds ... Model loading took 14.99 GiB
+Memory profiling takes 6.3 seconds
+the current vLLM instance can use total_gpu_memory (79.65GiB) x gpu_memory_utilization (0.92) = 73.28GiB
+model weights take 14.99GiB; non_torch_memory takes 0.13GiB; PyTorch activation peak memory takes 1.35GiB;
+  the rest of the memory reserved for KV Cache is 56.81GiB.
+GPU KV cache size: 465,360 tokens
+Maximum concurrency for 8,192 tokens per request: 56.81x
+Capturing CUDA graphs ...
+```
+(Wording varies between versions; the structure — weights, non-torch, activation peak, remainder for KV, tokens, concurrency — is stable.) The **remainder for KV** line is the number your sizing sheet should predict; if your estimate and this line differ by more than ~10%, find out why (overhead guess, TP split, FP8 KV, quantised weights counted at the wrong width).
+
+### 10.2 vLLM metrics and what each is for
+| Metric | Reads as | Alert on |
+|---|---|---|
+| `vllm:num_requests_running` | sequences being decoded now | near `max_num_seqs` for long periods |
+| `vllm:num_requests_waiting` | admission queue length | non-zero for minutes; the autoscaling signal |
+| `vllm:kv_cache_usage_perc` | fraction of KV blocks in use (0-1) | > 0.9 sustained |
+| `vllm:num_preemptions_total` | recompute events | any sustained rate |
+| `vllm:prefix_cache_hits_total` / `..._queries_total` | prefix cache hit ratio | collapse after a prompt change |
+| `vllm:time_to_first_token_seconds` | TTFT histogram | p95 vs SLO |
+| `vllm:inter_token_latency_seconds` | ITL histogram | p95 vs SLO |
+| `vllm:request_queue_time_seconds` | time waiting before prefill | separates "queue" from "prefill" in TTFT |
+| `vllm:prompt_tokens_total`, `vllm:generation_tokens_total` | token throughput (use `rate()`) | capacity planning |
+(Module 03 and 08 use these; mock-vllm exposes the same names with simulated values.)
+
+### 10.3 llama.cpp (b11889) load log and metrics
+- Load log: `print_info: file type = Q4_K - Medium`, `file size = ... (... BPW)`, `llama_model_loader: - type q4_K: N tensors` lines (which tensor types the file contains), context and slot lines (`n_ctx_seq` / slots). Task 1.5 reads these.
+- `/metrics` counters used in this module: `llamacpp:tokens_predicted_total`, `llamacpp:prompt_tokens_total`, `llamacpp:prompt_seconds_total`, `llamacpp:prompt_tokens_cached_total`; gauges `requests_processing`, `requests_deferred`. Throughput = Δcounter / Δtime; **never** multiply a single request's tokens by guessed time.
+
+## 11. The scheduler, step by step (vLLM V1 model; mock-vllm implements the same shape)
+
+State: a **waiting** queue (FIFO, preempted requests go to the front), a **running** set, a pool of free KV blocks. Each step:
+1. Every running sequence gets one decode token (1 token of budget each). If a sequence needs a new block and none is free, the **newest** running sequence is preempted (its blocks are freed; it returns to waiting and will recompute prompt + generated tokens).
+2. The remaining token budget (`max_num_batched_tokens` minus the decode tokens) is given to the head of the waiting queue as a prefill chunk, if its prompt blocks can be allocated and `running < max_num_seqs`.
+3. The step runs; sequences that hit EOS/`max_tokens` leave and free blocks.
+
+Worked example with `max_num_batched_tokens = 2048`, `max_num_seqs = 256`: 120 sequences are decoding (120 tokens of budget), a new request with a 9,000-token prompt arrives. It gets 1,928 tokens of prefill in step 1, 1,928 in step 2, ... five steps in total; during those steps each running stream still receives one token per step, but each step takes longer (it does prefill work too), so **ITL rises for everyone** for ~5 steps and the newcomer's TTFT is about 5 steps long. With a budget of 8192 the same prompt takes two steps: lower TTFT for the newcomer, a bigger ITL bump for everyone else. This is the trade-off `max_num_batched_tokens` controls.
+
+Head-of-line blocking: the waiting queue is FIFO. A request whose prompt does not currently fit in free blocks blocks those behind it even if they are tiny. Under KV pressure you therefore see queueing of small requests behind one large one: another reason to cap context length per tenant at the gateway.
+
+Preemption cost: a preempted 6k-token sequence is prefilled again, consuming budget that waiting requests needed; preemption feeds on itself near the capacity edge (more recompute → less budget → longer queue → more KV held by waiting-but-prefilled work). That is why preemptions appearing at all is an alert, not a statistic.
+
+## 12. Latency and throughput arithmetic
+
+TTFT ≈ queue + prefill = queue + prompt_tokens / prefill_rate. Prefill rate is roughly `0.4 × peak FLOPs × TP / (2 × params)` tokens/s for a well-batched engine (the mock uses this model): an 8B model on a GPU with 990 dense BF16 TFLOP/s gives about 25,000 prompt tokens/s per GPU, so a 3,000-token prompt prefills in ~120 ms when unqueued.
+
+ITL(batch) rises slowly with batch size while memory-bound. Illustrative numbers (8B BF16 on one H100-class GPU, not a benchmark):
+| Concurrent sequences | ITL | Aggregate tokens/s |
+|---|---|---|
+| 1 | 7 ms | 143 |
+| 16 | 9 ms | 1,780 |
+| 64 | 14 ms | 4,570 |
+| 128 | 22 ms | 5,820 |
+| 256 | 40 ms | 6,400 |
+The curve flattens: going from 128 to 256 sequences adds 10% throughput and nearly doubles ITL.
+
+SLO-driven sizing example: SLO p95 ITL ≤ 25 ms and p95 TTFT ≤ 1.5 s; load 40,000 output tokens/s at peak. From the table the operating point is ~128 sequences per GPU (≈5,800 tok/s) → 40,000 / 5,800 ≈ 7 GPUs, plus N+1 → 8. Check the KV side: 128 sequences × 4k average tokens × 128 KiB = 64 GiB, which does not fit next to 15 GiB of weights on an 80 GiB GPU at util 0.92 (73.6 − 15 − 2 = 56.6 GiB): the KV capacity, not the compute, caps the batch at ~110 → recompute with ~110 sequences per GPU (~5,500 tok/s) → 40,000 / 5,500 = 7.3 → 8 GPUs, plus N+1 → 9. **Always run both checks: the compute/latency curve and the KV budget; the binding constraint decides.**
+
+## 13. Prefix caching: details that matter in production
+- vLLM hashes full blocks (block size 16 by default) chained with the parent hash, so a block matches only if **all earlier blocks matched too**; the last partial block is never cached. A 6,000-token shared prefix caches 5,984 tokens.
+- Eviction is LRU among blocks with zero references; under memory pressure the cache is the first thing to give way, so hit rates fall exactly when load rises.
+- Anything that changes the token stream before the shared part changes the hash: different system prompts per tenant, a different chat template or tokenizer revision, LoRA adapters (adapter id is part of the hash), multimodal inputs.
+- **Multi-tenant caution**: a cache hit is observable as a lower TTFT, so tenants sharing a cache can in principle probe for each other's prompts. Recent vLLM versions accept a per-request cache salt to isolate tenants; decide this explicitly for shared deployments.
+- Gateways can help: some route requests with the same prefix hash to the same replica; LiteLLM itself does not do prefix-aware routing, dedicated routers do (module 05 mentions them).
+- Measure it: `rate(prefix_cache_hits_total) / rate(prefix_cache_queries_total)` per engine, plus TTFT split by "cached vs not". A prompt-template change is the most common cause of a sudden drop.
+
+## 14. Quantisation in practice
+- **Calibration**: AWQ and GPTQ need a small calibration set to choose scales/rounding (use text close to your workload); FP8 dynamic quantisation needs none, static FP8 uses calibrated activation scales. A quantised checkpoint is an artefact you produce and version (module 02), not a flag.
+- **Method trade-offs**: GPTQ (layer-wise error minimisation) and AWQ (protects salient channels) give similar 4-bit quality with different kernel stories; FP8 is nearly lossless where supported; INT8 weight+activation (SmoothQuant) helps compute-bound serving on hardware without FP8.
+- **GGUF names**: `Q4_K_M` = 4-bit k-quant, "medium" mix (some tensors at higher precision); `Q5_K_M`, `Q6_K`, `Q8_0` trade size for fidelity; IQ-types use lookup tables for very low bit widths; an **imatrix** (importance matrix from calibration text) improves low-bit quality at the same size.
+- **KV quantisation** (`--kv-cache-dtype fp8`, llama.cpp `-ctk q8_0 -ctv q8_0`): halves KV memory, small accuracy loss that grows with context length; test on long-context tasks, not on short prompts.
+- **Evaluation checklist before promoting a quantised model**: (1) your own task set, not only perplexity; (2) tool-calling and JSON-validity rates; (3) long-context retrieval; (4) latency/throughput on the target GPU with the real prompt mix; (5) a rollback artefact. A 1% average drop can be a 20% drop on one critical task.
+- **What speeds up**: decode-bound loads at low batch (less memory to read); **what does not**: compute-bound prefill without hardware support for the low-precision matmul, and large-batch decode where dequantisation overhead appears. The lab's Q8-vs-Q4 result is the CPU version of this lesson.
+
+## 15. Serving failure modes (and the first command to run)
+| Symptom | Likely cause | First look |
+|---|---|---|
+| Fails at start with "max seq len larger than KV cache" | `max_model_len` > KV pool | start-up log: KV tokens vs `max_model_len` |
+| Fails at start with "free memory less than desired utilisation" | another process holds GPU memory | `nvidia-smi` (module 09) |
+| Starts, then CUDA OOM under load | utilisation too high (activations spike), fragmentation, a larger batch than profiled | lower `--gpu-memory-utilization`, `--max-num-batched-tokens` |
+| Throughput fine, p99 TTFT terrible | head-of-line blocking behind long prompts, preemption | waiting queue, preemption counter, per-request prompt length |
+| Throughput collapses after a deploy | prefix cache hit rate fell, or a quantisation/kernel change | cache hit ratio, engine version diff |
+| Streams stall for seconds then continue | a long prefill is occupying the step budget | `max_num_batched_tokens`, chunked prefill setting |
+| One replica slower than its siblings | thermal throttling, ECC, noisy neighbour (time-slicing) | DCGM clocks/temperature (module 09) |
+| Memory grows until restart | leak in the engine/client, unbounded concurrent long contexts | KV and process memory over days |
+
+## 16. How the lab maps to this theory
+| Task | Concept | Section |
+|---|---|---|
+| 1.1, 1.2 | KV and weight formulas, GiB, GQA, head_dim | 2, 6, 9 |
+| 1.3 | slots, continuous batching, aggregate throughput from counters | 3, 3.1, 12 |
+| 1.4 | strict-prefix cache, prompt layout | 4, 13 |
+| 1.5 | quantisation formats, kernels vs size | 5, 14 |
+| 1.6 | TP divisibility, MIG profiles, headroom | 6.2, 6.4 |
+| 1.7 | debugging a calculator (units, KV heads, TP split) | 2.1, 6 |
+
+## 17. Flag reference for sizing work
+
+### 17.1 vLLM (serve) flags that move memory or latency
+| Flag | Effect | Typical use |
+|---|---|---|
+| `--tensor-parallel-size N` | shard weights and KV across N GPUs | smallest N that fits with headroom |
+| `--pipeline-parallel-size N` | split layers across stages (multi-node) | only when TP across nodes would be needed |
+| `--gpu-memory-utilization F` | fraction of one GPU's memory the instance may claim | 0.90-0.95; lower when sharing a GPU or when activations spike |
+| `--kv-cache-memory-bytes B` | fixed KV pool size, overrides the utilisation-based sizing | when several instances share a GPU |
+| `--max-model-len L` | longest prompt+completion admitted | set from the product requirement, not the model maximum |
+| `--max-num-seqs N` | cap on sequences per step | tune against KV capacity and ITL SLO |
+| `--max-num-batched-tokens N` | per-step token budget (chunked prefill) | larger = better prefill throughput, worse ITL |
+| `--kv-cache-dtype fp8` | KV in FP8 | doubles KV capacity; validate accuracy |
+| `--quantization <method>` (awq, gptq, fp8, ...) | weight format (usually auto-detected) | match the checkpoint |
+| `--enable-prefix-caching` / `--no-enable-prefix-caching` | prefix cache (on by default in V1) | disable only to measure the worst case |
+| `--block-size N` | KV block size in tokens (default 16) | rarely changed |
+| `--served-model-name a b` | names the API accepts | stable names behind the gateway |
+| `--enable-auto-tool-choice --tool-call-parser P` | tool calling | per model family |
+
+### 17.2 llama-server flags used in the lab
+| Flag | Effect |
+|---|---|
+| `-m FILE` | the GGUF to load (`-hf REPO` downloads: never in an air gap) |
+| `-c N` | total context; with the classic layout split across slots |
+| `-np N` / `--parallel N` | number of slots (concurrent sequences) |
+| `-t N`, `-tb N` | generation / batch threads |
+| `-b N`, `-ub N` | logical / physical batch size for prompt processing |
+| `-ctk TYPE`, `-ctv TYPE` | KV cache types (`f16`, `q8_0`, `q4_0`; V quantisation needs flash attention) |
+| `--metrics` | enable `/metrics` |
+| `--embeddings --pooling cls` | embedding mode |
+| `--jinja` | use the model's Jinja chat template (needed for tools) |
+| `--alias NAME` | model name reported by the API |
+| `--cache-reuse N`, `--slot-prompt-similarity F`, `--slot-save-path DIR` | partial KV reuse, slot selection by prefix similarity, save/restore slot state |
+
+## 18. A capacity worksheet you can reuse
+Fill one row per model deployment; every cell is a number you can defend.
+| Item | How to get it | Example (Llama-3.1-70B FP8, 2 × H100-80) |
+|---|---|---|
+| params, bytes/param | `config.json`, quantisation format | 70.55e9, 1 → 65.7 GiB |
+| layers, kv_heads, head_dim | `config.json` | 80, 8, 128 |
+| KV dtype → bytes/token | formula | FP16 → 320 KiB; FP8 → 160 KiB |
+| required `max_model_len` | product requirement | 16,384 |
+| average and p95 sequence length | gateway logs | 3k / 12k |
+| target concurrent sequences | peak users × activity | 40 |
+| KV needed | seqs × average length × bytes/token (+ headroom for p95 tail) | 40 × 3k × 160 KiB = 18.3 GiB (+ tail) |
+| GPU memory × util, overhead | hardware, engine log | 2 × 80 × 0.92, 2 GiB each |
+| TP | smallest valid that fits | 2 |
+| tokens/s per replica at SLO | load test | 2,500 |
+| replicas | peak tokens/s ÷ per-replica + N+1 | 5,000 / 2,500 + 1 = 3 |
+| cold start | weights size ÷ effective bandwidth | 70 GB ÷ 2 GB/s ≈ 35 s + start-up ≈ 3-5 min |
+Two numbers from this table decide most reviews: **KV needed vs KV pool** and **tokens/s per replica at the SLO**.
+
+## 19. Common misreadings (and the fix)
+- "The model is 8B so it needs 16 GB": the weights do; the **service** needs weights + KV for the users + overhead.
+- "Concurrency 64 means 64 requests per second": it means 64 sequences alive at the same time; requests per second = concurrency / mean request duration.
+- "The GPU is 95% utilised so we are out of capacity": `GPU_UTIL` only says a kernel was running in the sample window; a memory-bound decode loop shows ~100% while using a fraction of peak FLOPs. Saturation is read from queue time and KV usage (module 08/09).
+- "More replicas always lower TTFT": only if the bottleneck is queueing; if prefill dominates (long prompts), more replicas help throughput but not the single request's TTFT, and they split the prefix cache.
+- "Quantise more to make it faster": only when the format has an efficient kernel on that hardware and the workload is memory-bound; measure.
+- "Our benchmark shows 5,000 tok/s": with which prompt/output lengths, cache state, concurrency and SLO? A number without those is not a capacity.
+
 ## Key takeaways
 1. Prefill is compute-bound and sets TTFT; decode is memory-bandwidth-bound and sets ITL. Batching amortises weight reads: throughput up, latency up.
 2. KV per token = 2 × layers × **kv_heads** × head_dim × bytes. GQA/MLA shrink it; context length × concurrency grows it; weight quantisation does not touch it.

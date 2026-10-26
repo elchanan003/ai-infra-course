@@ -1,0 +1,41 @@
+[PRE] mock-dcgm A healthy: ok
+[PRE] mock-dcgm B healthy: ok
+[PRE] Prometheus ready: ok
+[PRE] Prometheus uses lab/prometheus: ok
+[PRE] variant XID fault visible in DCGM: ok
+[PASS] 9.1a hottest GPU of node A identified (index and UUID agree)
+[PASS] 9.1b VRAM total and power cap of that GPU are right
+[PASS] 9.1c answer file is complete and well-formed
+[PASS] 9.2a promtool accepts the rules; all four alerts exist
+[PASS] 9.2b every alert fires on its bad series with UUID and Hostname intact
+[PASS] 9.2c alerts stay quiet on healthy, hot-but-below-threshold, flat-high, old-ECC and slow-drift GPUs
+[PASS] 9.2d live: fired for exactly the injected GPU, healthy GPUs quiet, resolved after the fault cleared
+[PASS] 9.3a XID code, node and GPU UUID match the live fault
+[PASS] 9.3b ACTION is the right class for this XID
+[PASS] 9.3c REASON is a real sentence that cites the evidence or the class
+[PRE] kind cluster aiinfra reachable: ok
+[PRE] 3 nodes Ready: ok
+[PRE] namespace gpu-lab exists: ok
+[PRE] stand-in image present on the nodes: ok
+[PASS] 9.4a nvidia.com/gpu capacity and allocatable follow the inventory (also a changed nonce inventory)
+[PASS] 9.4b GFD-style product/count/memory labels match exactly (also for the nonce inventory)
+[PASS] 9.4c both GPU nodes carry the nvidia.com/gpu NoSchedule taint; the control-plane advertises no GPU
+[PASS] 9.4d a second run changes nothing and exits 0
+[PASS] 9.5a gpu-ok is Running on aiinfra-worker (the A100 node)
+[PASS] 9.5b live object: limits nvidia.com/gpu = 1
+[PASS] 9.5c control: a 4-GPU pod stays Pending with Insufficient nvidia.com/gpu (capacity is enforced)
+[PASS] 9.5d control: a pod without your toleration stays Pending on the untolerated taint
+[PRE] kubeconform rejects a malformed ConfigMap (control): ok
+[PRE] server-side dry-run rejects a missing namespace (control): ok
+[PASS] 9.6a kubeconform: schema valid
+[PASS] 9.6b API server accepts it (server-side dry-run; NOT applied)
+[PASS] 9.6c embedded device-plugin config: v1, nvidia.com/gpu x4, renameByDefault, failRequestsGreaterThanOne (validated, not exercised)
+[PASS] 9.7a vllm-tp2 pod Running on aiinfra-worker (the only node with 2 GPUs)
+[PASS] 9.7b limits nvidia.com/gpu = 2 and --tensor-parallel-size 2 agree
+[PASS] 9.7c /dev/shm is a Memory emptyDir
+[PASS] 9.7d a new revision rolls out to Running with no spare GPU (strategy lets the old pod go first)
+[PASS] 9.7e control: the same pod forced onto the 1-GPU node stays Pending with Insufficient nvidia.com/gpu
+[PASS] T.1 broken-gpu is Running and holds one GPU
+[PASS] T.2 fixed properly: correct resource name and a toleration; no nodeName pinning, taints untouched
+SCORE: 28/28
+exit=0

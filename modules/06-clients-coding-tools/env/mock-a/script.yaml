@@ -1,0 +1,4 @@
+rules:
+  - name: aider-banner
+    match: {endpoint: chat, user_regex: "set the banner to (?P<n>[A-Za-z0-9]+)"}
+    edit: {file: app.py, search: 'BANNER = "hello"', replace: 'BANNER = "${n}"', lang: python, preface: "Here is the change."}

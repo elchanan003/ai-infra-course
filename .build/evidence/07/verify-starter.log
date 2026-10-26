@@ -1,0 +1,23 @@
+[PRE] gateway up: ok
+[PRE] lab key works on mock-a (run ./prepare-lab.sh): ok
+[PRE] mock-chat script loaded on mock-vllm A: ok
+[PRE] embedding alias answers: ok
+[PRE] Qdrant up: ok
+[PRE] tripwire up: ok
+[PRE] sandbox image present (python:3.12-slim): ok
+[PRE] venv python: ok
+[FAIL] 7.1a loop.py exited 1: un_agent(args.task, args.max_steps)              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   File "/home/student/ai-infra-course/modules/07-agents-mcp-sandbox-rag/lab/agent/loop.py", line 36, in run_agent     raise NotImplementedError NotImplementedError 
+[BLOCKED] 7.1b needs 7.1a
+[BLOCKED] 7.1c needs 7.1a
+[BLOCKED] 7.1d needs 7.1a
+[FAIL] 7.2a nothing listens on 127.0.0.1:18131 after 25 s (Streamable HTTP, --port honoured?): server.py: not implemented (task 7.2) 
+[BLOCKED] 7.2b needs 7.2a
+[BLOCKED] 7.2c needs 7.2a
+[BLOCKED] 7.2d needs 7.2a
+[BLOCKED] 7.3a needs 7.3b (a sandbox that denies nothing proves nothing)
+[FAIL] 7.3b net probe produced no result (exit 0): 
+[FAIL] 7.3c job could write to: /var/tmp/16038ac99276 /etc/16038ac99276 /usr/16038ac99276 /16038ac99276; a non-root user alone does not make /var/tmp read-only
+[FAIL] 7.3d /tmp took 48 MiB: an uncapped writable area lets a job fill the disk (theory 4.2, tmpfs size)
+[FAIL] 7.3e 300 child processes were forked without hitting a limit: what bounds the number of processes in a container?
+[FAIL] 7.3f memory hog ran to completion (1024 MiB): no memory limit applies
+[FAIL] 7.3g identity inside the job: uid=0 CapEff=00000000a80425fb NoNewPrivs=0; a sandbox runs as nobody with no capabilities and cannot gain privileges

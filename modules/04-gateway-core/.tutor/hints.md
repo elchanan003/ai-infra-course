@@ -3,7 +3,7 @@
 ## 4.1 aliases + database
 - H1: What are the two names in a `model_list` entry, and who uses each? Check the gateway log after restart.
 - H2: `model_name` is the client alias; `litellm_params.model` needs the `openai/` prefix for an OpenAI-compatible backend; `api_base` must include `/v1` and use the compose service name.
-- H3: `chat` -> `http://llama-chat:8080/v1`, `coder` -> `llama-coder`, `embed` -> `llama-embed`, all `api_key: none`. Keys need `general_settings.database_url: os.environ/DATABASE_URL`.
+- H3: `chat` -> `http://llama-chat:8080/v1`, `coder` -> `llama-coder`, `embed` -> `llama-embed`, all `api_key: none`; `general_settings.database_url: os.environ/DATABASE_URL`.
 - H4: see `.tutor/solution/litellm/config.yaml`; restart with `../../platform/stack.sh compose restart litellm`.
 
 ## 4.2 limited key
@@ -19,8 +19,8 @@
 - H4: `gen lab-limited '{"rpm_limit":2}'`, `gen lab-tpm '{"tpm_limit":50}'` in the solution.
 
 ## 4.4 durability
-- H1: Restart the gateway and call with an old key. What does the log say about the database?
-- H2: Without `database_url` keys live in memory. Counters for limits are also in memory unless a shared store exists. Postgres tables: `\dt` in database `litellm`.
+- H1: Restart the gateway and call with an old key. What does the log say about the database (prisma migrate)?
+- H2: With no database configured keys could not persist (the platform provides DATABASE_URL in the environment). Counters for limits are also in memory unless a shared store exists. Postgres tables: `\dt` in database `litellm`.
 - H3: `docker exec -it aiinfra-postgres-1 psql -U llm -d litellm` then `select count(*) from "LiteLLM_VerificationToken" where key_alias like 'legacy-%';` and `\d "LiteLLM_SpendLogs"` (primary key).
 - H4: `KEYS_TABLE=LiteLLM_VerificationToken`, `SPENDLOG_PK=request_id`, `LOST_ON_RESTART=rpm_counters`, LEGACY_KEY_ROWS = your count.
 

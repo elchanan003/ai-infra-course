@@ -52,7 +52,7 @@ docker exec -it $(docker ps -qf label=course=aiinfra -f name=postgres) psql -U l
 **Goal:** clients use stable aliases; the backends are the llama.cpp chat, embedding and coder servers.
 
 1. Edit `lab/litellm/config.yaml`: `model_list` with alias `chat` (llama.cpp chat), `embed` (llama.cpp embedding) and `coder` (llama.cpp coder), `openai/` provider prefix, container-DNS `api_base` (ports/hosts are in `platform/stack/README.md`), stable `model_info.id`s.
-2. Add `general_settings.master_key` / `database_url` from environment variables (names in `lab/env.sample`) — keys cannot be generated without a database.
+2. Reference the master key and the database from environment variables (`os.environ/...`, names in `lab/env.sample`) so the file is self-describing. (The platform already exports `DATABASE_URL`; find out what the gateway does with it and what would change if it were missing.)
 3. Restart the gateway and read `/v1/models`. Predict first: which names will appear? Then call chat and embed with the master key.
 4. Give the aliases prices in `model_info` (any small non-zero `input_cost_per_token`/`output_cost_per_token`) so spend is non-zero later.
 
@@ -60,7 +60,7 @@ docker exec -it $(docker ps -qf label=course=aiinfra -f name=postgres) psql -U l
 - `4.1.1` `/v1/models` lists `chat`, `embed` and `coder`.
 - `4.1.2` A chat completion on alias `chat` returns 200 with non-empty content (verify's nonce prompt).
 - `4.1.3` An embedding on alias `embed` returns 200 with the vector dimension of the backend model.
-- `4.1.4` `/key/generate` works (database connected).
+- `4.1.4` A key generated through the admin API with `models: ["chat"]` can call `chat` (database lookup, alias and backend all work).
 
 ## Task 4.2 — A key that may use only `chat`
 
@@ -93,7 +93,7 @@ docker exec -it $(docker ps -qf label=course=aiinfra -f name=postgres) psql -U l
 
 **Goal:** the gateway survives a restart with its keys, and you can say precisely what is stored where.
 
-1. If keys vanish after a restart, find out why (hint: Task 4.1 step 2, and `docker logs`). Fix it in `config.yaml`.
+1. Restart the gateway (`../../platform/stack.sh compose restart litellm`) and prove which state survives: an issued key (does it still work?) and a rate-limit counter. In the gateway log find the line that shows the database being set up. What would happen to keys if `DATABASE_URL` were unset?
 2. Query Postgres: count the key rows whose `key_alias` starts with `legacy-` in the key table (prepare seeded a per-learner number of them; report **what you see**, not a guess).
 3. Fill `lab/answers/durability.env`:
    - `KEYS_TABLE=` table that holds key records, `LEGACY_KEY_ROWS=` the count you read,

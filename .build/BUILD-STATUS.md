@@ -36,3 +36,7 @@ Shared author docs: .build/author-brief.md, .build/finish-prefix.md. Validator: 
 - HF cache: ~/.cache/aiinfra-course/hf/hub; hf-mirror mounts hf/ at /data ro.
 - mock/tests/run_tests.sh takes its own flock → never run inside lab-session.sh.
 - validate-module.sh strips [PRE]/[WARN]/[INFO]/`~` lines, ISO timestamps, nonce-<hex>; env MODULES_DIR, EVIDENCE_DIR, KEEP_LAB=1.
+
+## Ownership (rebalancing 2026-10-26, until coordinator account reset ~01:30 UTC)
+- Coordinator session launches/resumes NO agents until its reset. Running coordinator agents: WP4-A (00-02), WP4-B (03, 08), WP4-C (04-06) phase 2 — if one dies, coordinator marks its row "interrupted — owned by c1" and c1 takes it over (ASSIGN-c1 extra task 1).
+- c1 owns: WP4-D phase 2 (07, 09), WP4-E phase 2 (10, 11; after gates 03/04/05/09), WP5 tooling (validate-all.sh, offline-check.sh).

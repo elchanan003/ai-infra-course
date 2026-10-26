@@ -18,3 +18,4 @@ SHARED INFRA: other authors work in parallel on the same host/stack/kind. Run EV
 MANDATORY validation (real runs, evidence): `.build/validate-module.sh NN` must print `NN PASS` (starter 0 → solution 100% ×3 identical → cleanup/verify-clean ×2 identical → lab/ restored). Also run each planted fault separately once and confirm the right check catches it with a cause-naming message. Write files incrementally (you may be interrupted by rate limits; a finisher may resume from disk).
 
 Final report (≤ 20 lines): files per module, validate-module.sh verdict lines, verify wall time, platform/mock changes requested or made, known limitations.
+Platform facts for authors are in .build/BUILD-STATUS.md section 'Platform facts for authors (WP2 report)' — read it before running containers.

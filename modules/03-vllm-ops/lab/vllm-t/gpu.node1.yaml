@@ -1,0 +1,3 @@
+# SIMULATED GPU for mock-vllm (contract: mock/README.md section 2). node-1: nothing else on the GPU.
+name: A10G
+count: 1

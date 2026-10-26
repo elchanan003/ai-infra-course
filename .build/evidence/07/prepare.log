@@ -1,0 +1,21 @@
+SERVICE       STATUS
+hf-mirror     Up 30 seconds (healthy)
+litellm       Up 25 seconds (healthy)
+llama-chat    Up 28 seconds (healthy)
+llama-coder   Up 27 seconds (healthy)
+llama-embed   Up 27 seconds (healthy)
+mock-dcgm-a   Up 30 seconds (healthy)
+mock-dcgm-b   Up 28 seconds (healthy)
+mock-vllm-a   Up 29 seconds (healthy)
+mock-vllm-b   Up 30 seconds (healthy)
+postgres      Up 30 seconds (healthy)
+qdrant        Up 28 seconds (healthy)
+registry      Up 28 seconds (healthy)
+seaweedfs     Up 30 seconds (healthy)
+tripwire      Up 29 seconds (healthy)
+valkey        Up 29 seconds (healthy)
+prepare-lab: ready.
+  source lab/env.sh        # GATEWAY LAB_KEY AGENT_MODEL EMBED_MODEL QDRANT_URL SANDBOX_IMAGE TICKETS_JSON
+  agent model  mock-a  (SIMULATED: scripted mock-chat; embeddings: real llama.cpp bge-small via alias embed)
+  Qdrant       http://127.0.0.1:18033      tripwire counter  http://127.0.0.1:18072/hits
+exit=0

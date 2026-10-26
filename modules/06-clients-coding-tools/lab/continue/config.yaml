@@ -1,0 +1,7 @@
+# Lab 06 task 6.3 (yours): Continue config (schema v1). Two roles, two keys, two aliases.
+name: lab-assistant
+version: 1.0.0
+schema: v1
+models: []
+# TODO: chat model (roles chat, edit, apply) -> alias chat, key lab-continue-chat
+# TODO: autocomplete model -> alias coder, key lab-continue-fim, small maxTokens

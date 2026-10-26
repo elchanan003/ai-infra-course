@@ -1,0 +1,5 @@
+# Task 8.2: recording rules. Required series names (labels: model_name only):
+#   model:vllm_ttft_seconds:p95_5m      p95 time-to-first-token over 5m, all replicas combined
+#   model:vllm_itl_seconds:p95_5m       p95 inter-token latency over 5m
+#   model:vllm_generation_tokens:rate1m output tokens/s, summed over replicas
+groups: []

@@ -1,7 +1,5 @@
 # 00 — Lab: run the stack, trace one request, map the layers
 
-DRAFT (phase 1): task design, criteria ids and ownership are fixed; file names/URLs marked (P2) are confirmed in phase 2 against `platform/stack/README.md` and `mock/README.md`.
-
 Time: ~55 min. Guidance level: guided. Work from `modules/00-orientation/`. Profiles: `gw llm` (real LiteLLM + Postgres + Valkey + llama.cpp). Nothing here is simulated.
 
 ## Starting state
@@ -10,7 +8,8 @@ Time: ~55 min. Guidance level: guided. Work from `modules/00-orientation/`. Prof
 ## Ownership
 | Path | Status |
 |---|---|
-| `lab/request.json` | given (the request you must replay in task 0.2; differs per learner) |
+| `lab/request.json`, `lab/TICKET.txt` | given (created by prepare-lab; differ per learner) |
+| `lab/bin/reload-gateway.sh`, `lab/README.md` | given |
 | `lab/answers/stream.json` | yours — task 0.2 (starter: template values) |
 | `lab/answers/trace.json` | yours — task 0.3 (starter: template values) |
 | `lab/ARCH.env` | yours — task 0.4 (starter: component list, layer values empty) |
@@ -34,7 +33,7 @@ Precondition check `0.1` in `verify.sh` prints whether the gateway and the three
 3. Fill `lab/answers/stream.json`: `content_chunks`, `prompt_tokens`, `completion_tokens`, `finish_reason`, `usage_chunk_present` (true/false).
 
 Success criteria (verify.sh makes its own identical request through the gateway and compares):
-- `0.2.1` `content_chunks` equals the live count (verify tolerates the documented bookkeeping difference only).
+- `0.2.1` `content_chunks` equals the live count (only chunks whose `delta.content` is a non-empty string count).
 - `0.2.2` `prompt_tokens` and `completion_tokens` equal the live `usage`.
 - `0.2.3` `finish_reason` and `usage_chunk_present` are correct for **this** request (the variant makes `length` vs `stop` differ between learners).
 
@@ -43,7 +42,7 @@ Hints in `.tutor/hints.md`. Concept: theory section 4.1.
 ## Task 0.3 — Find a request in the gateway's own records
 **Goal:** answer "what happened to ticket X?" from LiteLLM's spend log, the way you will on call.
 
-`prepare-lab.sh` sent one request through the gateway with a per-learner `user` value `ticket-<id>`; the helpdesk gives you that id in `lab/TICKET.txt`. Spend rows are written in batches, so allow a few seconds.
+`prepare-lab.sh` sent one request through the gateway with a per-learner `user` value `ticket-<id>` (plus two decoy requests for other tickets); the helpdesk gives you that id in `lab/TICKET.txt`. Spend rows are written in batches, so allow a few seconds.
 1. Find the row: Admin API (`/spend/logs`), the UI Logs page, or SQL against the `LiteLLM_SpendLogs` table in the stack's Postgres (credentials in `platform/stack/README.md`).
 2. Fill `lab/answers/trace.json`: `request_id`, `model_group`, `api_base` (the backend address the gateway actually called), `total_tokens`, `status`.
 
@@ -57,7 +56,7 @@ Concept: theory section 4.3.
 ## Task 0.4 — Map the components to the four layers
 **Goal:** assign each running component to its layer and know where it listens.
 
-`lab/ARCH.env` lists 8 components from the running stack (the selection differs per learner). For every component set `LAYER_<name>=1|2|3|4` (1 clients, 2 gateway/control incl. its state, 3 engines, 4 hardware/platform) and `PORT_<name>=<host port or "none">` taken from `docker ps`.
+`lab/ARCH.env` lists 8 components (the selection differs per learner; some are not part of this profile, so nothing is published for them: port `none`). Variable names replace `-` by `_` (`LAYER_llama_chat`). For every component set `LAYER_<name>=1|2|3|4` (1 clients, 2 gateway/control incl. its state, 3 engines, 4 hardware/platform) and `PORT_<name>=<host port or "none">` taken from `docker ps`.
 
 Success criteria:
 - `0.4.1` every `LAYER_*` is correct (verify reports the first wrong component by name and the rule that decides it — not the answer).
@@ -70,7 +69,7 @@ Concept: theory section 2 (assignment rule).
 
 Symptom: requests with `"model": "coder"` through the gateway fail while `chat` works.
 1. Reproduce with `curl -i`; read the gateway log; call the coder engine directly from inside the network to prove it is healthy.
-2. Fix `lab/litellm/config.yaml` and reload the gateway (see `lab/README` for the reload command (P2)).
+2. Fix `lab/litellm/config.yaml` and reload the gateway (`lab/bin/reload-gateway.sh` restarts LiteLLM and waits until it is healthy).
 
 Success criteria:
 - `0.5.1` a completion through alias `coder` returns 200.

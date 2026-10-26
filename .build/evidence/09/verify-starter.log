@@ -1,0 +1,41 @@
+[PRE] mock-dcgm A healthy: ok
+[PRE] mock-dcgm B healthy: ok
+[PRE] Prometheus ready: ok
+[PRE] Prometheus uses lab/prometheus: ok
+[PRE] variant XID fault visible in DCGM: ok
+[FAIL] 9.1a lab/answers/smi.env is empty
+[FAIL] 9.1b VRAM_TOTAL_MIB/POWER_CAP_W do not match the hottest GPU (MiB not GB; the power CAP/limit, not the current draw)
+[FAIL] 9.1c smi.env must hold an integer index, a full GPU-<uuid>, integer MiB and integer W (no placeholders, no units)
+[FAIL] 9.2a rule file is valid but alerts are missing: GpuXidError GpuTooHot GpuEccUncorrected GpuMemoryLeak
+[BLOCKED] 9.2b needs 9.2a
+[BLOCKED] 9.2c needs 9.2a
+[BLOCKED] 9.2d needs 9.2a
+[FAIL] 9.3a lab/answers/xid.env is empty
+[BLOCKED] 9.3b needs 9.3a (a decision only counts for the right fault)
+[BLOCKED] 9.3c needs 9.3a (a decision only counts for the right fault)
+[PRE] kind cluster aiinfra reachable: ok
+[PRE] 3 nodes Ready: ok
+[PRE] namespace gpu-lab exists: ok
+[PRE] stand-in image present on the nodes: ok
+[FAIL] 9.4a node-gpu.sh failed (exit 1: node-gpu.sh: not implemented) - extended resources are patched in the node STATUS (subresource), '/' is '~1' in a JSON pointer
+[FAIL] 9.4b nvidia.com/gpu.product/.count/.memory labels missing or not the exact inventory strings on aiinfra-worker/aiinfra-worker2
+[FAIL] 9.4c GPU nodes must be tainted nvidia.com/gpu=present:NoSchedule (what a GPU node pool does)
+[FAIL] 9.4d second run exit=1, state changed=no - use idempotent operations (patch add of the same value, label/taint --overwrite)
+[FAIL] 9.5a gpu-ok not Running: 0/3 nodes are available: 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }, 2 node(s) had untolerated taint {nvidia.com/gpu: present}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for sc
+[FAIL] 9.5b live object has limits nvidia.com/gpu='none' requests='none' - extended resources go in limits, integer 1
+[BLOCKED] 9.5c needs 9.5a
+[BLOCKED] 9.5d needs 9.5a
+[PRE] kubeconform rejects a malformed ConfigMap (control): ok
+[PRE] server-side dry-run rejects a missing namespace (control): ok
+[FAIL] 9.6a timeslicing-cm.yaml must contain exactly one ConfigMap time-slicing-config in namespace gpu-lab (found: DOCS 0)
+[FAIL] 9.6b server-side dry-run rejected: error: no objects passed to apply
+[FAIL] 9.6c embedded plugin config: data key 'any' missing
+[FAIL] 9.7a vllm-tp2 not Running on aiinfra-worker: 0/3 nodes are available: 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }, 2 node(s) had untolerated taint {nvidia.com/gpu: present}. preemption: 0/3 nodes are available: 3 Pr nodes=' '
+[FAIL] 9.7b limits.nvidia.com/gpu='none' vs --tensor-parallel-size='none' - a TP=N server needs N GPUs in its pod, and they must agree
+[FAIL] 9.7c /dev/shm is not a Memory-backed emptyDir - the default 64 MiB shared memory breaks TP worker communication
+[BLOCKED] 9.7d needs 9.7a
+[BLOCKED] 9.7e needs 9.7a
+[FAIL] T.1 broken-gpu not Running: 0/3 nodes are available: 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }, 2 node(s) had untolerated taint {nvidia.com/gpu: present}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling.
+[BLOCKED] T.2 needs T.1
+SCORE: 0/28
+exit=1

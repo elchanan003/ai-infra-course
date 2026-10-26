@@ -1,0 +1,1 @@
+--model /models/qwen2.5-7b --max-model-len 32768 --gpu-memory-utilization 0.9 --max-num-seqs 16 --served-model-name chat

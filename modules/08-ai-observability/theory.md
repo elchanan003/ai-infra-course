@@ -243,6 +243,123 @@ A practical incident flow: **TTFT alert** → dashboard: queue? KV? → engine v
 9. Dashboards edited in the UI and lost at the next deploy; datasource uid mismatch.
 10. Prompt content in logs and traces without a retention/PII decision.
 
+## 11. Histogram quantiles by hand (what `histogram_quantile` really does)
+
+Given cumulative bucket rates for TTFT over the last 5 minutes (requests/s with TTFT ≤ le): `0.25 → 4.0`, `0.5 → 7.0`, `0.75 → 9.0`, `1.0 → 9.6`, `2.5 → 10.0`, `+Inf → 10.0`. Total 10 req/s, p95 → rank `0.95 × 10 = 9.5`. The first bucket whose cumulative value is ≥ 9.5 is `le=1.0` (9.0 at `le=0.75` is below the rank, 9.6 at `le=1.0` is above it). Interpolate inside `(0.75, 1.0]`: lower count 9.0, bucket count 0.6 → `0.75 + 0.25 × (9.5 − 9.0)/0.6` = **0.958 s**. The result moves only inside the bucket: whether the true p95 is 0.76 s or 0.99 s, Prometheus reports a point on a straight line. Three consequences:
+- Resolution is the bucket width. vLLM's TTFT buckets are fine below 1 s and coarse above (1 → 2.5 → 5 → 7.5 → 10 → 20 …): a 2-second p95 and a 2.4-second p95 look similar, but 2.4 vs 2.6 jumps across a boundary.
+- The top finite bucket caps quantiles: values beyond 2560 s are reported as 2560 s; `+Inf` bucket members are invisible.
+- SLO attainment (`le="1.0"` over `_count`) is exact and composable across replicas and time windows (sum numerators and denominators); quantiles are not composable. Multi-window burn-rate alerts use attainment.
+
+Counter hygiene: `rate()` handles resets (engine restart) by assuming the counter restarted from zero; `increase()` extrapolates to the window edges and is therefore *not* an integer — use differences of instant queries (`query?time=`) when you need an exact total for a bounded interval (token reconciliation, billing). `irate()` is for spiky dashboards only — never in alert rules (a single pair of samples).
+
+Staleness: when a replica disappears, its series go stale after one missed scrape; `sum` over replicas then drops abruptly — a **replica restart looks like a traffic drop** on a throughput panel. Annotate deploys and use `up` panels.
+
+## 12. A complete alert, unit-tested
+
+```yaml
+# rules/ai-alerts.yml
+groups:
+  - name: vllm.alerts
+    rules:
+      - alert: KVCacheNearFull
+        expr: |
+          max by (model_name) (vllm:kv_cache_usage_perc) > 0.9
+          and on (model_name) (
+                sum by (model_name) (vllm:num_requests_waiting) > 0
+             or sum by (model_name) (rate(vllm:num_preemptions_total[5m])) > 0
+          )
+        for: 2m
+        labels: {severity: warning, team: llm-platform}
+        annotations:
+          summary: "KV cache {{ $value | humanizePercentage }} full on {{ $labels.model_name }} with queueing or preemption"
+          runbook_url: https://runbooks.example.internal/llm/kv-cache-near-full
+```
+```yaml
+# tests/kv.test.yml  (promtool test rules tests/kv.test.yml)
+rule_files: [../rules/ai-alerts.yml]
+evaluation_interval: 15s
+tests:
+  - interval: 15s
+    input_series:
+      - {series: 'vllm:kv_cache_usage_perc{model_name="chat",replica="a"}',  values: '0.95x40'}
+      - {series: 'vllm:num_requests_waiting{model_name="chat",replica="a"}', values: '4x40'}
+    alert_rule_test:
+      - {eval_time: 1m, alertname: KVCacheNearFull, exp_alerts: []}               # pending, not firing yet
+      - eval_time: 5m
+        alertname: KVCacheNearFull
+        exp_alerts:
+          - exp_labels: {severity: warning, team: llm-platform, model_name: chat}
+            exp_annotations:
+              summary: "KV cache 95% full on chat with queueing or preemption"
+              runbook_url: https://runbooks.example.internal/llm/kv-cache-near-full
+```
+A good suite has: a **fire** case with exact labels/annotations, a **quiet-before-`for`** assertion, a **quiet** case where one half of the condition is false (KV high but no queue — the case that teaches the rule's purpose), and a **mutation check** (delete the `and` clause: the quiet case must fail). Notes on `promtool`: `values: '0.95x40'` means 41 samples; use `a+bxN` for counters; `eval_time` must be a multiple of the interval; `exp_alerts: []` asserts "not firing" (pending alerts do not count as firing in `alert_rule_test`); label sets must match exactly, which is why alert label contracts matter. The verify script of this lab uses `promql_expr_test` on `ALERTS{...}` to avoid coupling to annotation text.
+
+Alertmanager is covered in the alerting module; the AI-specific part is routing: **who owns `TTFTHigh`** (platform team) vs **`SpendAnomaly`** (FinOps/ team lead) vs **GPU XID** (infra on-call). Put `team`, `service`, `model_name` on every alert and route on `team`.
+
+## 13. SLO attainment and burn rates for TTFT
+
+Define the SLI as *the fraction of requests with TTFT ≤ 1.0 s* (exact from the `le="1.0"` bucket) and the SLO as 99% over 30 days (error budget 1% = 7.2 h of "bad" requests-time equivalent in request terms). Burn rate = observed bad fraction / budget fraction. A multi-window multi-burn-rate alert pages when both a long and a short window burn fast:
+
+```promql
+# bad fraction over a window W
+1 - (sum(rate(vllm:time_to_first_token_seconds_bucket{le="1.0"}[W])) / sum(rate(vllm:time_to_first_token_seconds_count[W])))
+
+# page: 14.4x burn over 1h AND 5m  (budget gone in ~2 days)
+(1 - sum(rate(..._bucket{le="1.0"}[1h])) / sum(rate(..._count[1h])) ) > (14.4 * 0.01)
+and
+(1 - sum(rate(..._bucket{le="1.0"}[5m])) / sum(rate(..._count[5m])) ) > (14.4 * 0.01)
+```
+Why attainment instead of `p95 > 1`: it is exact, aggregates correctly across replicas, has a budget you can spend and report on, and the two-window form suppresses blips while still catching a real regression within minutes. For low traffic services the denominator is tiny: add a traffic floor (`and sum(rate(_count[1h])) > 0.1`). A p95-threshold alert (`TTFTHigh` in the lab) is the simpler first alert; attainment burn-rate is the mature one.
+
+## 14. Series count, cardinality and cost
+
+Rule of thumb: each vLLM replica exposes ~590 lines, of which histograms dominate (`request_*` histograms have 8-22 buckets each × 3 series). Estimate: 1 replica ≈ 450 active series; 50 replicas ≈ 22,500 — trivial for Prometheus. LiteLLM is the cardinality risk: `litellm_*` metrics multiply by `model × api_key × team × user × status_code × exception`. 500 keys × 10 models × 8 status codes = 40,000 series per metric × ~8 metrics = 320k series — uncomfortable. Controls: `prometheus_metrics_config` (select metric groups and label sets), drop `end_user`/`user` labels, aggregate by team in recording rules and **drop raw per-key series** via `metric_relabel_configs` if per-key detail lives in spend logs instead. Never use request ids, prompts or free text as label values (Langfuse is the place for per-request data). Retention: 15 days locally is typical; use a remote-write backend (Thanos/Mimir/VictoriaMetrics) for long SLO windows. `scrape_interval` 15-30 s in production halves storage vs 5 s; histogram `rate()` windows must be ≥ 4 × scrape interval.
+
+## 15. Kubernetes shape (how this looks outside the lab)
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata: {name: vllm, labels: {release: kube-prometheus-stack}}
+spec:
+  selector: {matchLabels: {app: vllm}}
+  podMetricsEndpoints: [{port: http, path: /metrics, interval: 15s}]
+  podTargetLabels: [model, replica]      # copy pod labels onto series: model_name is not unique per replica
+```
+Also scraped in a real platform: the DCGM exporter (GPU Operator ServiceMonitor; module 09), kube-state-metrics (pod restarts, `Pending` pods), node-exporter (host RAM — vLLM CPU-RAM OOM kills), the gateway (LiteLLM), Postgres/Redis exporters (gateway state), Langfuse's own metrics. Grafana dashboards are shipped as ConfigMaps with the sidecar loader or via Grafana Operator `GrafanaDashboard` CRs; rules as `PrometheusRule` objects (the same YAML you wrote in the lab under `groups:`). The alert → ticket path (Alertmanager receivers, silences for maintenance, `inhibit_rules` so `EngineDown` mutes the latency alerts of the same model) is the alerting module's.
+
+## 16. Langfuse operations notes
+
+- **Sizing**: ClickHouse dominates disk (traces with full prompts: 5-50 KB each; 1M traces/month ≈ 10-50 GB). Set a retention TTL (project-level data retention in newer versions, or a ClickHouse TTL) and an S3 lifecycle on the event/media bucket. Postgres stays small (projects, keys, prompts, users). The worker is the throughput bottleneck for ingestion bursts: scale workers horizontally; a growing Redis queue (`bull` queues) means ingestion lag, not data loss.
+- **High availability** needs a replicated ClickHouse (ClickHouse Keeper), managed Postgres, Redis with persistence off but HA, and a durable S3; the lab single-node compose is for learning.
+- **Air-gap**: no telemetry (`TELEMETRY_ENABLED=false`), no external auth, images mirrored; the langfuse-web image needs no internet at runtime. Prompt-management and evals are optional features worth knowing: prompt versions with labels (`production`), datasets/experiments, LLM-as-judge evaluators (the judge model must be reachable internally — your own gateway).
+- **Masking and consent**: mask at the source if possible (LiteLLM `turn_off_message_logging: true` logs metadata only; per-key/team overrides exist) — retrofitting masking after prompts are stored is much harder. Decide who can open the UI: traces include whatever users pasted.
+- **Trace anatomy** from LiteLLM: one trace per request (name from `trace_name`, `user_id`, `session_id`, `tags`), one `generation` observation with model, input messages, output, `usage` (input/output/total tokens), cost if the model has a price, start/end/completion-start timestamps (TTFT for streams), and `level=ERROR` + status message for failures. Retries/fallbacks appear as separate generations when enabled.
+- **Correlation**: LiteLLM response header `x-litellm-call-id`; pass `trace_id` in metadata to join with application traces. Spend logs, Langfuse and engine logs share timestamps; use the call id as the join key.
+
+## 17. OpenTelemetry route (know it exists)
+
+vLLM can export request spans via OTLP (`--otlp-traces-endpoint`, with the `opentelemetry-*` packages installed); LiteLLM has `otel` and `langfuse_otel` callbacks; Langfuse ingests OTLP at `/api/public/otel`. The attraction: one standard pipeline (OTel Collector → Tempo/Jaeger/Langfuse) and trace context propagation from the client through the gateway to the engine, so a slow request shows queue time, prefill and decode as spans of one trace. The cost: more moving parts; sampling decisions; GenAI semantic conventions are still evolving (attribute names change between releases) — pin versions and test. Teams with an existing OTel stack should start there; teams without one usually start with the LiteLLM→Langfuse callback and add OTel later.
+
+## 18. An incident, end to end (what you will do in the capstone)
+
+Page: `TTFTHigh` for `model_name="chat"`, p95 3.2 s (SLO 1 s). Walk:
+1. Dashboard row 1: TTFT p95 up since 14:05; ITL p95 normal; tokens/s flat. → it is **queueing or prefill**, not decode speed.
+2. Row 2: `num_requests_waiting` 0 → 35 at 14:05; `running` pinned at 64 (= `max_num_seqs`); KV 0.52; preemption rate 0. → the **sequence cap** binds, KV has room.
+3. Row 5 (gateway): requests per key: `agent-batch` key went from 2 to 40 req/s at 14:04 with 3,000-token prompts. → a new client; LiteLLM per-key limits missing (module 05).
+4. Langfuse sample of slow traces: same 2,800-token system prompt, user id `etl-bot`. → a looping automation.
+5. Actions: (short) gateway `max_parallel_requests` for that key; (medium) separate team/pool for batch traffic; (long) raise `max_num_seqs` only after checking KV, add a replica, prefix-aware routing for the shared prompt.
+6. Postmortem fields: detection time (alert `for` + scrape), time to attribute (per-key metrics), what the dashboard lacked (per-key TTFT?), alert quality (did `QueueGrowing` fire first?).
+
+## 19. Exercises
+
+1. Write the expression for "fraction of requests with ITL ≤ 50 ms" per model. (`sum by (model_name) (rate(vllm:inter_token_latency_seconds_bucket{le="0.05"}[5m])) / sum by (model_name) (rate(vllm:inter_token_latency_seconds_count[5m]))`.) Why is `le="0.05"` a legal literal here? (It is a real bucket boundary; `le="0.06"` would return nothing.)
+2. Your dashboard shows tokens/s dropping to zero for 20 s every deploy. Is the service down? (No: per-replica counters reset and series go stale during rolling updates; check `up`, readiness and the gateway error rate before alarming.)
+3. LiteLLM metrics show 1,000 requests, the spend logs 970. Name two harmless and one harmful explanation. (Harmless: batch lag at the time of the query, requests still in flight; harmful: dropped spend writes — check Postgres errors.)
+4. Why record `sum by (le, model_name) (rate(..._bucket[5m]))` as its own series in a large fleet? (Quantiles over 50 replicas × 22 buckets per dashboard refresh are expensive and the aggregated buckets can be re-quantiled for any quantile or SLO threshold.)
+5. A teammate proposes alerting on `avg_over_time(vllm:kv_cache_usage_perc[5m]) > 0.8`. Critique. (KV is expected to be high on a healthy busy replica; average over replicas hides a single full one — use `max by`; no co-condition on queue/preemptions; fires daily and gets muted.)
+
 ---
 
 ## Key takeaways
@@ -261,3 +378,35 @@ A practical incident flow: **TTFT alert** → dashboard: queue? KV? → engine v
 3. A KV-cache alert pages every afternoon although users are fine. What is wrong with it and how do you re-scope it?
 4. Spend logs show 8% fewer tokens than `increase(vllm:generation_tokens_total[1h])`. List three causes you check.
 5. A trace you just sent is not in Langfuse yet. Is something broken? Explain the ingestion path.
+
+## 20. Reference: PromQL cookbook for the AI stack
+
+| Question | Query |
+|---|---|
+| Output tokens/s per model | `sum by (model_name) (rate(vllm:generation_tokens_total[1m]))` |
+| Input tokens/s per model | `sum by (model_name) (rate(vllm:prompt_tokens_total[1m]))` |
+| Mean output length | `sum(rate(vllm:request_generation_tokens_sum[5m])) / sum(rate(vllm:request_generation_tokens_count[5m]))` |
+| Share of requests ending by length cap | `sum(rate(vllm:request_success_total{finished_reason="length"}[5m])) / sum(rate(vllm:request_success_total[5m]))` |
+| Client aborts per second | `sum(rate(vllm:request_success_total{finished_reason="abort"}[5m]))` |
+| Prefix cache hit rate | `sum(rate(vllm:prefix_cache_hits_total[5m])) / sum(rate(vllm:prefix_cache_queries_total[5m]))` |
+| Queue time p95 | `histogram_quantile(0.95, sum by (le) (rate(vllm:request_queue_time_seconds_bucket[5m])))` |
+| Prefill vs decode time share | `rate(vllm:request_prefill_time_seconds_sum[5m]) / rate(vllm:request_inference_time_seconds_sum[5m])` |
+| Mean preemptions per request | `rate(vllm:request_num_preemptions_sum[5m]) / rate(vllm:request_num_preemptions_count[5m])` |
+| Gateway error ratio | `sum(rate(litellm_proxy_failed_requests_metric_total[5m])) / sum(rate(litellm_proxy_total_requests_metric_total[5m]))` |
+| Tokens per key (24 h) | `sum by (api_key_alias) (increase(litellm_total_tokens_metric_total[24h]))` |
+| llama.cpp generation tokens/s | `rate(llamacpp:tokens_predicted_total[1m])` |
+| Engine up | `up{job="vllm"}` |
+| Metric disappeared | `absent(vllm:kv_cache_usage_perc)` |
+
+Conventions: aggregate before dividing (`sum(rate(a)) / sum(rate(b))`, not an average of ratios); keep `model_name` on every aggregation that feeds a per-model alert; and always check a new query against a number you can compute by hand from raw `/metrics` once.
+
+## 21. Dashboard review checklist (use it on any AI dashboard you inherit)
+
+1. Every latency panel is a quantile of histogram buckets (not `_sum` alone, not an average of quantiles) and shows the SLO as a threshold line.
+2. Counters are always wrapped in `rate()`/`increase()`; gauges never are.
+3. Units are right (`s`, `percentunit`, `reqps`); KV is 0..1; tokens/s is not labelled requests/s.
+4. The top row answers "are users OK?" (TTFT, ITL, error rate, tokens/s), the next rows "why?" (queue, KV, preemptions, batch), the bottom "who/how much?" (per key/team, cost).
+5. There is a panel that fails loudly when scraping fails (`up`, number of series) — an empty dashboard must not look like a healthy one.
+6. Template variables have an "All" value that works with `=~` and the panel queries use it.
+7. Panels are readable at the default time range (15 m) and at 6 h; `$__rate_interval` instead of hard-coded windows.
+8. The dashboard JSON is in Git, provisioned with a stable uid, and has a version history; nobody edits it only in the UI.

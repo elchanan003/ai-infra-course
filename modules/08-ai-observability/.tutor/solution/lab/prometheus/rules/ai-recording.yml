@@ -1,0 +1,9 @@
+groups:
+  - name: vllm.recording
+    rules:
+      - record: model:vllm_ttft_seconds:p95_5m
+        expr: histogram_quantile(0.95, sum by (le, model_name) (rate(vllm:time_to_first_token_seconds_bucket[5m])))
+      - record: model:vllm_itl_seconds:p95_5m
+        expr: histogram_quantile(0.95, sum by (le, model_name) (rate(vllm:inter_token_latency_seconds_bucket[5m])))
+      - record: model:vllm_generation_tokens:rate1m
+        expr: sum by (model_name) (rate(vllm:generation_tokens_total[1m]))
