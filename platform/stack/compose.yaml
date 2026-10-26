@@ -181,7 +181,7 @@ services:
     image: ${MOCK_IMAGE}
     profiles: [mock]
     command: ["dcgm"]
-    environment: { MOCK_NODE: a }
+    hostname: gpu-node-a
     volumes: ["${MOCK_DCGM_A_CONFIG_DIR:-${MOCK_DCGM_CONFIG_DIR:-./config/mock-dcgm-a}}:/config:ro"]
     ports: [127.0.0.1:18031:8000]
     mem_limit: 128m
@@ -192,7 +192,7 @@ services:
     image: ${MOCK_IMAGE}
     profiles: [mock]
     command: ["dcgm"]
-    environment: { MOCK_NODE: b }
+    hostname: gpu-node-b
     volumes: ["${MOCK_DCGM_B_CONFIG_DIR:-${MOCK_DCGM_CONFIG_DIR:-./config/mock-dcgm-b}}:/config:ro"]
     ports: [127.0.0.1:18032:8000]
     mem_limit: 128m
@@ -338,10 +338,7 @@ services:
     image: ${MOCK_IMAGE}
     profiles: [store]
     command: ["hf-mirror"]
-    environment:
-      HF_CACHE: /hf
-      HF_HUB_CACHE: /hf
-    volumes: ["${AIINFRA_CACHE}/hf/hub:/hf:ro"]
+    volumes: ["${AIINFRA_CACHE}/hf:/data:ro"]       # mock reads /data and /data/hub (HF cache layout)
     ports: [127.0.0.1:18071:8000]
     mem_limit: 256m
     healthcheck: *mock-health
@@ -353,8 +350,7 @@ services:
     image: ${TRIPWIRE_IMAGE}
     profiles: [store]
     environment:
-      TRIPWIRE_SINK_IP: 172.29.231.2
-      TRIPWIRE_IP: 172.29.231.2
+      TRIPWIRE_IP: 172.29.231.2          # every name resolves to the tripwire's address on the internal network
     networks:
       aiinfra: { ipv4_address: 172.29.230.2 }
       aiinfra-airgap: { ipv4_address: 172.29.231.2 }
@@ -469,7 +465,7 @@ services:
       - ${TAILSCALE_IP:-100.127.87.65}:18060:3000
     mem_limit: 1536m
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/public/health"]
+      test: ["CMD-SHELL", "wget -qO- http://$$(hostname -i):3000/api/public/health"]   # next binds the container IP, not loopback
       interval: 5s
       timeout: 3s
       retries: 40
@@ -513,12 +509,12 @@ networks:
   aiinfra:
     name: aiinfra
     labels: { course: aiinfra }
-    ipam: { config: [{ subnet: 172.29.230.0/24 }] }
+    ipam: { config: [{ subnet: 172.29.230.0/24, ip_range: 172.29.230.128/25 }] }   # .2 reserved for the tripwire
   aiinfra-airgap:
     name: aiinfra-airgap
     internal: true
     labels: { course: aiinfra }
-    ipam: { config: [{ subnet: 172.29.231.0/24 }] }
+    ipam: { config: [{ subnet: 172.29.231.0/24, ip_range: 172.29.231.128/25 }] }
 
 volumes:
   postgres-data: { labels: { course: aiinfra } }

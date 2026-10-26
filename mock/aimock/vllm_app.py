@@ -187,7 +187,7 @@ def create_app(args, cap, fault0, config_dir):
             else:
                 pieces = split_pieces(plan.text)
         elif fim:
-            sents = sorted({(m.group(1) or m.group(2)).lower() for m in FIM_RE.finditer(ctx["prompt"])})
+            sents = sorted({"fim_" + (m.group(1) or m.group(2)).lower() for m in FIM_RE.finditer(ctx["prompt"])})
             pieces = split_pieces(f"FIM_ECHO prefix_chars={len(ctx['prompt'])} suffix_chars={len(str(ctx['suffix'] or ''))} "
                                   f"sentinels={','.join(sents) or 'none'} model={model}")
         shape = dict(stream=bool(body.get("stream")), max_tokens=mt, temperature=body.get("temperature"), user=body.get("user"),

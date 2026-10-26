@@ -55,7 +55,7 @@ def create_app(data):
     @app.middleware("http")
     async def logmw(request: Request, call_next):
         resp = await call_next(request)
-        if not request.url.path.startswith("/admin"):
+        if not request.url.path.startswith(("/admin", "/health")):
             e = dict(i=len(reqs), t=round(time.time(), 3), method=request.method, path=request.url.path, query=request.url.query,
                      status=resp.status_code, range=request.headers.get("range"), user_agent=request.headers.get("user-agent"),
                      host=request.headers.get("host"), authorization=bool(request.headers.get("authorization")))

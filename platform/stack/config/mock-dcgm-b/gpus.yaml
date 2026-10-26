@@ -1,0 +1,6 @@
+# Simulated DCGM node B (SIMULATION). Contract: mock/README.md.
+hostname: gpu-node-b
+gpus:
+  count: 2
+  model: NVIDIA A100-SXM4-80GB
+  memory_mib: 81920

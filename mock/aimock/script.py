@@ -21,7 +21,7 @@ def _render(v, vars_):
 
 
 def extract_nonce(text, rx=None):
-    rx = rx or r"nonce[-_=: ]*([A-Za-z0-9_-]{6,})"
+    rx = rx or r"nonce[\"'\s:=_-]*([A-Za-z0-9_-]{6,})"
     m = re.search(rx, text or "", re.I)
     if not m:
         return (text or "").strip()

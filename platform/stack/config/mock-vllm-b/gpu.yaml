@@ -1,0 +1,3 @@
+# Simulated GPU of this mock-vllm instance (SIMULATION: no GPU exists). Contract: mock/README.md.
+name: A100-80GB
+count: 1
