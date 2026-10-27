@@ -1,0 +1,8 @@
+[PRE] prepare-lab.sh was run: ok
+[FAIL] 11.1 self-assessment: 14 skills not rated 1-5 yet, e.g. 'Explain the four-layer request path and TTFT vs ITL'
+[FAIL] 11.2 team questions: 0 valid distinct questions (need >= 10 bullets of >= 6 words ending in '?'; 0 bullet(s) rejected as placeholder/too short)
+[FAIL] 11.3 first-week plan: not filled in as 'Day N: focus: ... | output: ...' (>= 3 words each, no placeholders): Day 1, Day 2, Day 3, Day 4, Day 5
+[BLOCKED] 11.4 plan outputs: plan structure incomplete: Day 1, Day 2, Day 3, Day 4, Day 5
+[BLOCKED] T.1 week-1 safety: plan structure incomplete: Day 1, Day 2, Day 3, Day 4, Day 5
+SCORE: 0/5
+exit=1

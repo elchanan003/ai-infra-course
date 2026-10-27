@@ -1,0 +1,2 @@
+prepare-lab: ready. Fill in lab/self-assessment.md, lab/team-questions.md, lab/first-week-plan.md, then ./verify.sh
+exit=0
