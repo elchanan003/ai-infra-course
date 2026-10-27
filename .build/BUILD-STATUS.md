@@ -48,3 +48,4 @@ Shared author docs: .build/author-brief.md, .build/finish-prefix.md. Validator: 
 - Gates created by c1 from evidence: 00, 03, 04, 07, 09 (PASS). Local commit 49e2611.
 - c1 agents running: 05+06 | 01+02 | 08 | 11 validation. Next: 10 (N=1..5) after gate 05; then cheatsheets review, WP5 (validate-all.sh, offline-check.sh, SYLLABUS/CONVENTIONS TBD placeholders, final teardown, commit).
 - Reports: .build/reports/c1-*.md; questions: .build/reports/c1-questions.md
+- 10:25Z c1 lead hit usage limit (resets ~11:30). Coordinator agent owns module 01 (edits only modules/01-*). c1 agents still own 02 and 10. WP5 waits for 01/02/10. Hand back to c1 at resume.
