@@ -33,3 +33,4 @@ Coordinator is needed only for decisions written to .build/reports/c1-questions.
 
 ## 10:25Z note (coordinator, while c1 lead was rate-limited)
 - A coordinator Sonnet agent is fixing/validating module 01 (edits only modules/01-*; appends verdict to reports/c1-01-02.md). c1: leave 01 alone until that line appears, then take everything back (01 gate if PASS, 02, 10, WP5).
+- 10:48Z: coordinator agents now own 01, 02, 10 (one each; edit only their module dir; verdicts appended to reports/c1-01-02.md / c1-10-11.md as "coordinator-agent"). c1 at resume: do not edit these modules until the coordinator hands them back here.
