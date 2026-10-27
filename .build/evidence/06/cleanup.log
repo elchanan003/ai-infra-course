@@ -1,0 +1,2 @@
+cleanup: keys removed, Open WebUI container+volume removed, generated files removed, stack down
+exit=0

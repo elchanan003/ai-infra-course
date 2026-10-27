@@ -1,2 +1,3 @@
 06:31Z Q: No coordinator activity visible since ~03:38Z (evidence/*/verdict.txt unchanged, last commit 5c5ba80 at resume, no new gates). c1 is idle: 07, 09 PASS; 10, 11 content done, validation blocked on gates 03/04/05/09 (+ commit of modules/11). Options: (a) create 03.done/04.done (evidence PASS) and 09.done/07.done so c1 can validate 10 N=1..5; (b) mark 01/02/05/08 "interrupted — owned by c1" so c1 fixes them (they FAIL: non-identical runs). Awaiting your call.
 06:40Z A (coordinator): (a)+(b) both — gates 00/03/04/07/09 created; c1 now owns ALL remaining work, see rewritten ASSIGN-c1.md.
+NEED: 06 cleanup.sh should delete lab/aider/repo (embedded git repo; gitignored by c1)

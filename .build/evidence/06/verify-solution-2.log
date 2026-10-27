@@ -1,0 +1,27 @@
+[PRE] gateway live: ok
+[PRE] Open WebUI healthy: ok
+[PRE] mock A/B live: ok
+[PRE] host load low: ok
+[FAIL] 6.1.1 Open WebUI lists [] - it should list chat (and embed) from the gateway, using a key that may not call agent/coder
+[FAIL] 6.1.2 chat via Open WebUI: HTTP 400, nonce seen under lab-owui: no - the UI must call the gateway with its own key
+[PASS] 6.1.3 Open WebUI's only upstream is the gateway with key lab-owui
+[PASS] 6.1.4 connect.sh idempotent (exit 0 twice, same end state)
+[FAIL] 6.2.1 app.py not changed (run.sh exit 0): find token in cache or `LiteLLM_VerificationTokenTable` The API provider is not able to authenticate you. Check your API key.   - check model name/prefix, edit format and non-interactive flags
+[PASS] 6.2.2 gateway logged Aider's request under key lab-aider, model group agent
+[PASS] 6.2.3 run.sh exits 0 within 120 s without interaction
+~ aider took 4s
+[BLOCKED] 6.2.4 needs 6.2.1 (a run.sh that works) - a script that never runs also 'fails cleanly'
+[PASS] 6.3.1 config has a chat model and an autocomplete model, both on the gateway
+[FAIL] 6.3.2 chat replay status=200, rows under lab-continue-chat/chat: 0 - model alias and key of the chat role
+[FAIL] 6.3.3 autocomplete status=200, coder rows 0, backend saw FIM=true - autocomplete must use /completions with prefix+suffix, alias coder and the FIM key
+[PASS] 6.3.4 FIM key denied on chat, chat key denied on coder
+[PASS] 6.4.1 structure of the captured request measured correctly
+[PASS] 6.4.2 LOGGED_PROMPT_TOKENS within 5% of the gateway's logged value
+[PASS] 6.4.3 SESSION_25_PROMPT_TOKENS within 5% of the reference computation
+[PASS] 6.4.4 no template placeholder values left
+[FAIL] 6.5.1 model list [] took 0.08s after restart - something in the stored configuration still makes the listing wait
+[PASS] 6.5.3 Ollama API disabled in the stored configuration
+[PASS] 6.5.4 gateway connection with lab-owui still the only upstream
+[FAIL] 6.5.2 after the restart the listing is not fast and correct - the fix must live in the application's stored configuration
+SCORE: 12/20
+exit=1

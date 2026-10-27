@@ -1,0 +1,1 @@
+06 FAIL starter=0/20 solution=12/20,12/20,12/20 identical=no clean=yes

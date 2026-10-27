@@ -19,3 +19,9 @@
 [PASS] 6.4.2 LOGGED_PROMPT_TOKENS within 5% of the gateway's logged value
 [PASS] 6.4.3 SESSION_25_PROMPT_TOKENS within 5% of the reference computation
 [PASS] 6.4.4 no template placeholder values left
+[FAIL] 6.5.1 model list [] took 0.08s after restart - something in the stored configuration still makes the listing wait
+[PASS] 6.5.3 Ollama API disabled in the stored configuration
+[PASS] 6.5.4 gateway connection with lab-owui still the only upstream
+[FAIL] 6.5.2 after the restart the listing is not fast and correct - the fix must live in the application's stored configuration
+SCORE: 12/20
+exit=1

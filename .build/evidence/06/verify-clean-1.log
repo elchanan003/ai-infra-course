@@ -1,0 +1,7 @@
+[PASS] C.1 no course containers left
+[PASS] C.2 Open WebUI volume removed
+[PASS] C.3 non-course containers untouched
+[PASS] C.4 lab/ workspace files intact
+[PASS] C.5 generated state removed
+SCORE: 5/5
+exit=0

@@ -1,0 +1,8 @@
+# Reference key policy: the agent key gets its own cap well below the team quota (team quota - chat reserve) and a concurrency cap.
+keys:
+  chat-0c32b5:
+    rpm_limit: null
+    max_parallel_requests: null
+  agent-0c32b5:
+    rpm_limit: 28
+    max_parallel_requests: 2

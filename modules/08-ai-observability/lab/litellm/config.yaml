@@ -1,4 +1,5 @@
 # Task 8.7 (part L only): LiteLLM config for the Langfuse gate. Based on the platform base config minus the llama.cpp aliases.
+# TODO 8.7: send traces to Langfuse. The container already has LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_HOST in its environment.
 model_list:
   - model_name: mock-a
     litellm_params: {model: openai/chat, api_base: "http://mock-vllm-a:8000/v1", api_key: none}
@@ -12,8 +13,6 @@ general_settings:
 
 litellm_settings:
   callbacks: ["prometheus"]
-  success_callback: ["langfuse"]
-  failure_callback: ["langfuse"]
   require_auth_for_metrics_endpoint: false
   cache: true
   cache_params:
