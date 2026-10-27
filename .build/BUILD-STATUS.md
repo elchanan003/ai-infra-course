@@ -50,3 +50,4 @@ Shared author docs: .build/author-brief.md, .build/finish-prefix.md. Validator: 
 - Reports: .build/reports/c1-*.md; questions: .build/reports/c1-questions.md
 - 10:25Z c1 lead hit usage limit (resets ~11:30). Coordinator agent owns module 01 (edits only modules/01-*). c1 agents still own 02 and 10. WP5 waits for 01/02/10. Hand back to c1 at resume.
 - 10:48Z coordinator agents own 01, 02, 10 until handback to c1 (~11:30). WP5 after.
+- 11:02Z 01, 02 PASS (gates, committed). Only 10 left (coordinator agent), then WP5.
