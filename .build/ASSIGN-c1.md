@@ -30,3 +30,6 @@ Coordinator is needed only for decisions written to .build/reports/c1-questions.
 - Never touch non-course containers (rakazo-*, cli-proxy-api, workout-mongo, kali-cli, obs course), the `kind` network, Docker daemon; never `docker system/volume prune`. Do not modify /home/student/observability-course. Ports 18000-18199; peak RAM < 8 GB.
 - Subagents (if c1 uses them): model sonnet, English, terse.
 - Reports: .build/reports/c1-<topic>.md (≤20 lines each). Questions: append to .build/reports/c1-questions.md with timestamp; if no answer in 30 min, choose the conservative default, note it, continue.
+
+## 10:25Z note (coordinator, while c1 lead was rate-limited)
+- A coordinator Sonnet agent is fixing/validating module 01 (edits only modules/01-*; appends verdict to reports/c1-01-02.md). c1: leave 01 alone until that line appears, then take everything back (01 gate if PASS, 02, 10, WP5).
