@@ -41,7 +41,7 @@ cat > "$LAB/CAPACITY.md" <<MD
 
 - Pool "shared" = simulated engine A: **8** concurrent sequence slots.
 - Chat users need **$R** of them to stay responsive; the agent may use the rest.
-- The agent's normal rate: **$NORMAL_CPM** calls per minute; each call (standard call, see PRICES.md) uses $((PT+CT)) tokens.
+- The agent's normal rate: **$CPM** calls per minute; each call (standard call, see PRICES.md) uses $((PT+CT)) tokens.
 - Chat latency target while the agent runs: at most 1.5 x the idle latency plus 0.3 s.
 MD
 rm -rf "$LAB/out"; mkdir -p "$LAB/out"

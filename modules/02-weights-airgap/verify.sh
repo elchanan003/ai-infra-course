@@ -18,7 +18,7 @@ precond "hf-mirror serves $REPO" curl -fsS "$HFMIRROR_URL/api/models/$REPO" && p
 wait_idle 80 60 || warn env "host CPU is busy (timing is not graded here, continuing)"
 
 # ---- 2.1 -------------------------------------------------------------------------------------
-"$PY" "$CK" model "$LAB" "$STATE" | emit
+emit < <("$PY" "$CK" model "$LAB" "$STATE")
 
 # ---- 2.2 pickle scanner ------------------------------------------------------------------------
 CAN=$(jq -r .canary "$STATE/variant.json"); rm -f "$CAN"
@@ -42,7 +42,7 @@ res=$(cd "$TMP" && timeout 60 "$PY" "$LAB/pickle_scan.py" truncated.bin 2>/dev/n
 rm -f "$CAN"
 
 # ---- 2.3 S3 --------------------------------------------------------------------------------------
-if passed 2.1.1; then "$PY" "$CK" s3 "$LAB" "$STATE" "$LAB/s3-serve.env" | emit
+if passed 2.1.1; then emit < <("$PY" "$CK" s3 "$LAB" "$STATE" "$LAB/s3-serve.env")
 else for id in 2.3.1 2.3.2 2.3.3; do blocked $id "needs 2.1.1 (nothing to sync)"; done; fi
 
 # ---- 2.4 air-gapped serving ----------------------------------------------------------------------
@@ -119,7 +119,7 @@ fi
 [ "$okp" = 1 ] && pass 2.5.3 "oras pull of the recorded artifact yields your variant's GGUF (sha256 $want), media types as specified" || fail 2.5.3 "the artifact aiinfra/models/gguf@ARTIFACT_DIGEST is missing, has the wrong artifactType/layer mediaType, or its file hash is not GGUF_SHA256 = the sha256 of $GGUF"
 
 # ---- 2.6 bundle -------------------------------------------------------------------------------------
-"$PY" "$CK" bundle "$LAB" "$STATE" | emit
+emit < <("$PY" "$CK" bundle "$LAB" "$STATE")
 docker rm -f aiinfra-lab02-bundle >/dev/null 2>&1
 docker run -d --name aiinfra-lab02-bundle --label course=aiinfra --label module=02 --network aiinfra-airgap --cap-drop ALL --user "$(id -u):$(id -g)" \
   -v "$LAB/incoming:/bundle:ro" -e "MOCK_VLLM_ARGS=--model /bundle --served-model-name lab" "$MOCK_IMAGE" vllm >/dev/null 2>&1

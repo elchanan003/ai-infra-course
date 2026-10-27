@@ -362,23 +362,6 @@ Page: `TTFTHigh` for `model_name="chat"`, p95 3.2 s (SLO 1 s). Walk:
 
 ---
 
-## Key takeaways
-
-- LLM latency is TTFT (queue + prefill) and ITL (decode), as **quantiles from histogram buckets**; averages and `avg(p95)` mislead; thresholds belong on bucket boundaries.
-- Gauge → plot/`*_over_time`; counter → `rate`; histogram → `sum by (le)` then `histogram_quantile`. `kv_cache_usage_perc` is 0..1.
-- Saturation signals are KV usage, queue length, preemption rate; alert on leading indicators with context, page on the TTFT symptom; unit-test rules with `promtool`, add `up`/`absent` guards.
-- Dashboards are code (provisioned, uid-bound, units right); verify panel queries against hand numbers.
-- Tokens reconcile across engine, gateway counters, spend logs and client usage within ~2% after a flush barrier; the gaps have named causes.
-- Langfuse (web + worker + Postgres + ClickHouse + Redis + S3) gives per-request traces with async ingestion and a privacy burden; Prometheus for SLOs, traces for forensics.
-
-## Check yourself
-
-1. Write the PromQL for p95 TTFT across two vLLM replicas and explain why `avg(histogram_quantile(...))` is wrong.
-2. Your SLO is "p95 TTFT < 1.5 s". Why is the computed p95 unreliable around that value with vLLM's buckets, and what do you compute instead?
-3. A KV-cache alert pages every afternoon although users are fine. What is wrong with it and how do you re-scope it?
-4. Spend logs show 8% fewer tokens than `increase(vllm:generation_tokens_total[1h])`. List three causes you check.
-5. A trace you just sent is not in Langfuse yet. Is something broken? Explain the ingestion path.
-
 ## 20. Reference: PromQL cookbook for the AI stack
 
 | Question | Query |
@@ -410,3 +393,21 @@ Conventions: aggregate before dividing (`sum(rate(a)) / sum(rate(b))`, not an av
 6. Template variables have an "All" value that works with `=~` and the panel queries use it.
 7. Panels are readable at the default time range (15 m) and at 6 h; `$__rate_interval` instead of hard-coded windows.
 8. The dashboard JSON is in Git, provisioned with a stable uid, and has a version history; nobody edits it only in the UI.
+
+
+## Key takeaways
+
+- LLM latency is TTFT (queue + prefill) and ITL (decode), as **quantiles from histogram buckets**; averages and `avg(p95)` mislead; thresholds belong on bucket boundaries.
+- Gauge → plot/`*_over_time`; counter → `rate`; histogram → `sum by (le)` then `histogram_quantile`. `kv_cache_usage_perc` is 0..1.
+- Saturation signals are KV usage, queue length, preemption rate; alert on leading indicators with context, page on the TTFT symptom; unit-test rules with `promtool`, add `up`/`absent` guards.
+- Dashboards are code (provisioned, uid-bound, units right); verify panel queries against hand numbers.
+- Tokens reconcile across engine, gateway counters, spend logs and client usage within ~2% after a flush barrier; the gaps have named causes.
+- Langfuse (web + worker + Postgres + ClickHouse + Redis + S3) gives per-request traces with async ingestion and a privacy burden; Prometheus for SLOs, traces for forensics.
+
+## Check yourself
+
+1. Write the PromQL for p95 TTFT across two vLLM replicas and explain why `avg(histogram_quantile(...))` is wrong.
+2. Your SLO is "p95 TTFT < 1.5 s". Why is the computed p95 unreliable around that value with vLLM's buckets, and what do you compute instead?
+3. A KV-cache alert pages every afternoon although users are fine. What is wrong with it and how do you re-scope it?
+4. Spend logs show 8% fewer tokens than `increase(vllm:generation_tokens_total[1h])`. List three causes you check.
+5. A trace you just sent is not in Langfuse yet. Is something broken? Explain the ingestion path.

@@ -23,12 +23,12 @@ precond "stack llm answers" curl -fsS "$LLAMA_CHAT_URL/health" || { for id in "$
 wait_idle 70 90 || { warn env "host CPU is busy; refusing to score (retry when idle)"; exit 2; }
 
 # ---- 1.1 sizing.py / 1.2 / 1.6 / 1.7 (pure python) ---------------------------------------------
-python3 "$CK" sizing "$LAB/sizing.py" "$V" | emit
-python3 "$CK" vram "$LAB/answers/vram.env" "$V" | emit
-python3 "$CK" tp "$LAB/answers/tp.json" "$V" | emit
+emit < <(python3 "$CK" sizing "$LAB/sizing.py" "$V")
+emit < <(python3 "$CK" vram "$LAB/answers/vram.env" "$V")
+emit < <(python3 "$CK" tp "$LAB/answers/tp.json" "$V")
 python3 "$CK" calc "$LAB/team_calc.py" "$V" > "$TMP/calc.txt" 2>&1
-grep -E '^(PASS|FAIL) 1\.7\.1' "$TMP/calc.txt" | emit
-if passed 1.7.1; then grep -E '^(PASS|FAIL) 1\.7\.2' "$TMP/calc.txt" | emit; else blocked 1.7.2 "needs 1.7.1 (a CLI that prints wrong numbers is not a working contract)"; fi
+emit < <(grep -E '^(PASS|FAIL) 1\.7\.1' "$TMP/calc.txt")
+if passed 1.7.1; then emit < <(grep -E '^(PASS|FAIL) 1\.7\.2' "$TMP/calc.txt"); else blocked 1.7.2 "needs 1.7.1 (a CLI that prints wrong numbers is not a working contract)"; fi
 
 # ---- 1.3 slots / batching (your llama.env, your bench.py) --------------------------------------
 CTX=$(env_kv "$LAB/llama.env" CTX); NP=$(env_kv "$LAB/llama.env" PARALLEL); TH=$(env_kv "$LAB/llama.env" THREADS); MODEL=$(env_kv "$LAB/llama.env" MODEL)
@@ -36,7 +36,7 @@ if [ -z "$CTX" ] || [ -z "$NP" ] || [ ! -f "$MODELS/${MODEL:-x}" ]; then
   fail 1.3.1 "lab/llama.env is incomplete (CTX, PARALLEL, THREADS, MODEL must be set; MODEL must exist in ~/.cache/aiinfra-course/models)"
 else
   U1="http://127.0.0.1:18121"
-  if start_llama aiinfra-lab01-v-a 18121 "$MODEL" "$CTX" "$NP" "${TH:-4}"; then python3 "$CK" slots "$U1" 1800 | emit
+  if start_llama aiinfra-lab01-v-a 18121 "$MODEL" "$CTX" "$NP" "${TH:-4}"; then emit < <(python3 "$CK" slots "$U1" 1800)
   else fail 1.3.1 "llama-server did not start with your llama.env (ctx=$CTX parallel=$NP): docker logs aiinfra-lab01-v-a"; fi
   stop_llama aiinfra-lab01-v-a
 fi
@@ -67,7 +67,7 @@ else fail 1.3.2 "bench.py output is missing or differs by more than 1.5x from th
 if ! python3 -c 'import sys;sys.exit(0 if float(sys.argv[1])>1.2 else 1)' "${rv:-0}" 2>/dev/null; then
   blocked 1.3.3 "batching gain not observable right now (measured ratio ${rv:-?}); host noise - rerun when idle"
 else
-  python3 - "$LAB/answers/batching.json" "$rv" <<'PY' | emit
+  emit < <(python3 - "$LAB/answers/batching.json" "$rv" <<'PY'
 import json, sys
 try: a = json.load(open(sys.argv[1]))
 except Exception as e: print("FAIL 1.3.3 batching.json unreadable:", e); sys.exit()
@@ -76,12 +76,13 @@ ok = all(isinstance(x, (int, float)) and x > 0 for x in (r, p1, p4)) and abs(r -
 print("PASS 1.3.3 ratio consistent with the measured %.2f and the reason is right" % rv if ok else
       "FAIL 1.3.3 batching.json: ratio must equal parallel4_tps/parallel1_tps, lie within 0.6-1.6x of the measured ratio (%.2f) and why must name what makes concurrent decoding cheaper" % rv)
 PY
+  )
 fi
 
 # ---- 1.4 prompt cache -----------------------------------------------------------------------------
 if start_llama aiinfra-lab01-v-c 18123 qwen2.5-0.5b-instruct-q4_k_m.gguf 4096 1 4; then
-  python3 "$CK" cache "http://127.0.0.1:18123" "$LAB/prompt_template.py" "$V" "$LAB/variant" | emit
-  python3 "$CK" cacheans "http://127.0.0.1:18123" "$LAB/variant" "$LAB/answers/cache.json" | emit
+  emit < <(python3 "$CK" cache "http://127.0.0.1:18123" "$LAB/prompt_template.py" "$V" "$LAB/variant")
+  emit < <(python3 "$CK" cacheans "http://127.0.0.1:18123" "$LAB/variant" "$LAB/answers/cache.json")
 else fail 1.4.1 "verify's llama-server did not start"; fail 1.4.2 "verify's llama-server did not start"; fail 1.4.3 "verify's llama-server did not start"; fi
 stop_llama aiinfra-lab01-v-c
 
@@ -103,5 +104,5 @@ if ! python3 -c 'import sys;sys.exit(0 if float(sys.argv[1])>1.5 else 1)' "${rat
 fi
 jq -n --argjson q4 "$(cat "$TMP/parse-Q4.json")" --argjson q8 "$(cat "$TMP/parse-Q8.json")" --argjson s4 "$(stat -c%s "$MODELS/$Q4")" --argjson s8 "$(stat -c%s "$MODELS/$Q8")" --arg r "${ratio:-}" \
   '{q4:$q4,q8:$q8,size_q4:$s4,size_q8:$s8,ratio:(if $r=="" then null else ($r|tonumber) end)}' > "$TMP/truth.json"
-python3 "$CK" quant "$LAB/answers/quant.json" "$TMP/truth.json" | emit
+emit < <(python3 "$CK" quant "$LAB/answers/quant.json" "$TMP/truth.json")
 summary

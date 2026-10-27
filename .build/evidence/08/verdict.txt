@@ -1,1 +1,0 @@
-08 FAIL starter=0/18 solution=15/18,15/18,15/18 identical=no clean=yes

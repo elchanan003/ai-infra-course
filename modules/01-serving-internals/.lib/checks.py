@@ -245,7 +245,7 @@ def cmd_quant(answers, truthfile):
     ok = a.get("size_q4_bytes") == t["size_q4"] and a.get("size_q8_bytes") == t["size_q8"]
     out("PASS" if ok else "FAIL", "1.5.1", "file sizes exact" if ok else "file sizes are not the exact byte counts of the two GGUF files in lab/variant/models.txt (stat, not ls -h)")
     lc = lambda x: sorted(str(s).lower() for s in (x or []))
-    ok = str(a.get("ftype_q4", "")).strip().lower() == t["q4"]["ftype"].lower() and str(a.get("ftype_q8", "")).strip().lower() == t["q8"]["ftype"].lower() and lc(a.get("tensor_types_q4")) == t["q4"]["types"] and lc(a.get("tensor_types_q8")) == t["q8"]["types"]
+    ok = str(a.get("ftype_q4", "")).strip().lower() == (t["q4"]["ftype"] or "?").lower() and str(a.get("ftype_q8", "")).strip().lower() == (t["q8"]["ftype"] or "?").lower() and lc(a.get("tensor_types_q4")) == t["q4"]["types"] and lc(a.get("tensor_types_q8")) == t["q8"]["types"]
     out("PASS" if ok else "FAIL", "1.5.2", "ftype and tensor types match the load logs" if ok else "ftype / tensor type sets differ from what llama-server prints when it loads these files (read the 'llama_model_loader' lines of the load log)")
     r = a.get("prompt_eval_ratio_q8_over_q4"); rv = t["ratio"]
     if rv is None: out("FAIL", "1.5.3", "verify could not measure a stable ratio (host busy?) - rerun when idle"); 

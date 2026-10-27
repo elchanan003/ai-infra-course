@@ -35,6 +35,7 @@ def cmd_model(lab, state):
         for d, ds, fs in os.walk(md):
             ds[:] = [x for x in ds if x != ".cache"]
             for fn in fs:
+                if fn == ".gitkeep": continue
                 rel = os.path.relpath(os.path.join(d, fn), md)
                 if rel in t["decoys"] or not rel.endswith((".json", ".txt", ".safetensors")): extra.append(rel)
         out("FAIL" if extra else "PASS", "2.1.2", ("files that serving does not need were downloaded (%s) - use explicit --include patterns" % extra[0]) if extra else "no decoy or unneeded files downloaded")

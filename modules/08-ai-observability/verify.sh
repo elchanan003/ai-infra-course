@@ -9,13 +9,13 @@ LAB="$MOD/lab"; H="$MOD/harness"; RUN="$MOD/.state/run"; mkdir -p "$RUN"
 MODE="${1:-main}"
 cleanup_all() { for u in "$MOCK_A_URL" "$MOCK_B_URL"; do curl -s -m 3 -X DELETE "$u/admin/fault" >/dev/null 2>&1; done; [ -n "${LG_PID:-}" ] && kill "$LG_PID" 2>/dev/null; }
 trap cleanup_all EXIT
-pq() { python3 - "$@" <<'PY'
+pq() { python3 -c "
 import json,sys
-d=json.load(sys.stdin)
+try: d=json.load(sys.stdin)
+except Exception: d={}
 r=d.get('data',{}).get('result',[])
 print(sum(float(x['value'][1]) for x in r) if r else '')
-PY
-}
+"; }
 pval() { prom_query "$1" | pq; }
 pmax() { prom_query "$1" | python3 -c "import json,sys; r=json.load(sys.stdin).get('data',{}).get('result',[]); print(max(float(x['value'][1]) for x in r) if r else '')"; }
 mkkey() { litellm_api /key/generate -d "{\"key_alias\":\"$1\",\"models\":[\"mock-a\",\"mock-b\",\"chat\"]}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('key',''))"; }
@@ -173,6 +173,12 @@ done
 [ $fired = 1 ] && { [ $resolved = 1 ] && pass 8.4f "alert resolved after the fault and load were removed" || fail 8.4f "alert still firing 150 s after the fault was removed: the expression should clear when KV drops or queue/preemptions stop"; } || blocked 8.4f "needs 8.4d"
 
 # ---- 8.5 token reconciliation (verify runs fresh traffic, then executes YOUR reconcile.sh)
+# the 8.4 live load was killed client-side; wait until engine A has drained before opening the measurement window
+for _ in $(seq 1 60); do
+  busy=$(pval 'sum(vllm:num_requests_running{replica="a"}) + sum(vllm:num_requests_waiting{replica="a"})')
+  [ "${busy:-1}" = 0 ] && break; sleep 3
+done
+sleep 12
 python3 "$H/traffic.py" > "$RUN/traffic.out" 2>&1; read -r _ < "$RUN/traffic.out"
 S=$(sed -n 's/.*START=\([0-9]*\).*/\1/p' "$RUN/traffic.out" | tail -1); E=$(sed -n 's/.*END=\([0-9]*\).*/\1/p' "$RUN/traffic.out" | tail -1); AL=$(sed -n 's/.*KEY_ALIAS=\([^ ]*\).*/\1/p' "$RUN/traffic.out" | tail -1)
 if [ -z "$S" ]; then fail 8.5a "verify traffic run failed: $(tail -1 "$RUN/traffic.out" | cut -c1-120)"; blocked 8.5b "needs 8.5a"; blocked 8.5c "needs 8.5a"
