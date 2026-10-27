@@ -231,9 +231,12 @@ def main():
         v = VARIANTS[vi]
         json.dump(dict(index=vi, **{k: v[k] for k in v}), open(vp, "w"), indent=1)
         mp = os.path.join(STATE, "starter.sha")
-        man = json.load(open(mp)) if os.path.exists(mp) else {}
-        w = Writer(LAB, man, force)
+        vm = os.path.join(LAB, ".variant")
+        fresh = (not os.path.exists(mp)) or (not os.path.exists(vm)) or open(vm).read().strip() != str(vi)
+        man = json.load(open(mp)) if not fresh else {}
+        w = Writer(LAB, man, force or fresh)
         build(w, v, vi)
+        open(os.path.join(LAB, ".variant"), "w").write(str(vi) + "\n")
         json.dump(man, open(mp, "w"), indent=1)
     elif cmd == "solution":
         vi = json.load(open(vp))["index"]

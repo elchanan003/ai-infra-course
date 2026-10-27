@@ -4,37 +4,19 @@
 [PASS] 3.1b KV tokens / max length fit within 5% of the live values
 [PASS] 3.2a vllm-a starts and serves a completion
 [PASS] 3.2b max_model_len 57344 >= floor and utilization 0.92 <= 0.95
-[PASS] 3.3a all 8 requests completed with 200
-[PASS] 3.3b peak running batch 8 >= 8
-[PASS] 3.3c no preemption
-Traceback (most recent call last):
-  File "<stdin>", line 2, in <module>
-  File "/usr/lib/python3.10/json/__init__.py", line 293, in load
-    return loads(fp.read(),
-  File "/usr/lib/python3.10/json/__init__.py", line 346, in loads
-    return _default_decoder.decode(s)
-  File "/usr/lib/python3.10/json/decoder.py", line 337, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-  File "/usr/lib/python3.10/json/decoder.py", line 355, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-ValueError: could not convert string to float: ''
-[FAIL] 3.4a your p95 differs by >10% from histogram_quantile on the same buckets: find the bucket holding rank 0.95*count, then interpolate linearly inside it (theory 11)
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-ValueError: could not convert string to float: ''
-[FAIL] 3.4b BUCKET_LOWER/UPPER are not the neighbouring bucket boundaries around the quantile rank (use cumulative counts, not per-bucket counts)
+[PASS] 3.3a all 8 requests ran together (peak running batch >= 8, all HTTP 200)
+[PASS] 3.3b no preemption while they ran together
+[PASS] 3.4a P95_TTFT_SECONDS within 10% of histogram_quantile on the snapshot
+[PASS] 3.4b BUCKET_LOWER/UPPER are the adjacent le values bracketing the p95
 [PASS] 3.5a KV_PEAK within 0.05 of the replay
 [PASS] 3.5b PREEMPTIONS matches the replay
 [PASS] 3.5c LIMITER matches what bounded the burst
-[PASS] 3.6a p95 ITL within 0.1 s (attainment 1.0)
-[PASS] 3.6b throughput 2371.6 tok/s >= 1450
+[PASS] 3.6a output throughput meets the floor of 1450 tok/s (median of 3 runs)
+[PASS] 3.6b p95 inter-token latency within 0.1 s at that throughput
 [PASS] 3.6c no preemption under the load
 [PASS] 3.6d fixed platform settings untouched (utilization 0.30, max length 4096)
 [PASS] 3.8a vllm-t starts and serves on node-2
 [PASS] 3.8b utilization 0.85 <= free fraction 0.875 minus 0.02
 [PASS] 3.8c same args still start on node-1 with max_model_len 8192 unchanged
-SCORE: 17/19
-exit=1
+SCORE: 18/18
+exit=0

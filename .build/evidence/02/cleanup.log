@@ -1,0 +1,2 @@
+cleanup: lab containers, registry tags, store volumes and the synthetic mirror repo removed; stack down (lab/ untouched)
+exit=0

@@ -27,5 +27,5 @@ for t in a b; do docker restart "aiinfra-mock-vllm-$t-1" >/dev/null 2>&1; done
 precond "prometheus ready (:18090)" wait_http "$PROM_URL/-/ready" 60
 precond "grafana ready (:18030)" wait_http "$GRAFANA_URL/api/health" 60
 precond "litellm healthy (:18040)" wait_http "$LITELLM_URL/health/liveliness" 60
-precond "mock-vllm A/B healthy" bash -c "curl -sf $MOCK_A_URL/health >/dev/null && curl -sf $MOCK_B_URL/health >/dev/null"
+precond "mock-vllm A and B healthy" bash -c "curl -sf http://127.0.0.1:18021/health >/dev/null && curl -sf http://127.0.0.1:18022/health >/dev/null"
 echo "Ready. Read modules/08-ai-observability/lab.md"

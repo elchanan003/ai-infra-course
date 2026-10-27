@@ -6,7 +6,6 @@ GW="${LITELLM_URL:-http://127.0.0.1:18040}"; GW2="http://127.0.0.1:18041"
 MASTER="${LITELLM_KEY:-sk-aiinfra-master}"
 PGC=aiinfra-postgres-1; GW1C=aiinfra-litellm-1; GW2C=aiinfra-litellm-2-1; VALKEYC=aiinfra-valkey-1
 CLIENT_C=aiinfra-lab04-client; CLIENT_NET=aiinfra-lab04-client
-mkdir -p "$STATE"
 
 pg() { docker exec "$PGC" psql -U llm -d litellm -tAc "$1" 2>/dev/null | tr -d '\r'; }
 admin() {  # admin METHOD PATH [JSON]  -> body on stdout (master key)

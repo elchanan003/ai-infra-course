@@ -1,0 +1,13 @@
+{
+  "model": "chat",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Count from 1 to 40, numbers only, separated by spaces."
+    }
+  ],
+  "max_tokens": 14,
+  "temperature": 0,
+  "seed": 7,
+  "stream": true
+}

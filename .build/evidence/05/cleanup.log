@@ -1,0 +1,2 @@
+cleanup: keys/teams removed, mock faults reset, generated files removed, stack down
+exit=0

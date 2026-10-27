@@ -66,13 +66,13 @@ fi
 
 # ---- 0.3 trace -----------------------------------------------------------------------------------
 TID="ticket-$(jq -r .ticket_id "$V")"
-row=$(docker exec aiinfra-postgres-1 psql -U llm -d litellm -tA -F'|' -c "select request_id, model_group, api_base, total_tokens, status from \"LiteLLM_SpendLogs\" where \"user\"='$TID' order by \"startTime\" desc limit 1" 2>/dev/null)
+row=$(docker exec aiinfra-postgres-1 psql -U llm -d litellm -tA -F'|' -c "select request_id, model_group, api_base, total_tokens, status from \"LiteLLM_SpendLogs\" where end_user='$TID' order by \"startTime\" desc limit 1" 2>/dev/null)
 T="$LAB/answers/trace.json"
 if [ -z "$row" ]; then
   for id in 0.3.1 0.3.2 0.3.3; do blocked $id "the ticket row is missing from the spend log - run ./prepare-lab.sh"; done
 else
   IFS='|' read -r r_id r_mg r_ab r_tt r_st <<<"$row"
-  [ "$(jq -r .request_id "$T" 2>/dev/null)" = "$r_id" ] && pass 0.3.1 "request_id belongs to $TID" || fail 0.3.1 "request_id is not the spend-log row of the ticket's user (filter on the OpenAI user field, mind the decoy tickets)"
+  [ "$(jq -r .request_id "$T" 2>/dev/null)" = "$r_id" ] && pass 0.3.1 "request_id belongs to $TID" || fail 0.3.1 "request_id is not the spend-log row of the ticket's user (filter on the end-user column, mind the decoy tickets)"
   if [ "$(jq -r .model_group "$T" 2>/dev/null)" = "$r_mg" ] && [ "$(jq -r .api_base "$T" 2>/dev/null)" = "$r_ab" ]; then pass 0.3.2 "model_group and api_base match the row"
   else fail 0.3.2 "model_group/api_base differ from the logged row (report what the gateway actually called, not what you assume)"; fi
   if [ "$(jq -r .total_tokens "$T" 2>/dev/null)" = "$r_tt" ] && [ "$(jq -r .status "$T" 2>/dev/null)" = "$r_st" ]; then pass 0.3.3 "total_tokens and status match the row"

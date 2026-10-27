@@ -2,21 +2,20 @@
 # Backends (simulated): mock-vllm A = mock-vllm-a:8000 (context 32 000 tokens, 8 slots), B = mock-vllm-b:8000 (context 2 000 tokens, 8 slots).
 # Groups: chat (A+B)  pool (A+B)  ha (A)  ha-backup (B)  small (B)  big (A)  shared (A)
 model_list:
-  # TODO 5.1: give the two deployments of "chat" stable ids and a weighted split
-  - {model_name: chat, litellm_params: {model: openai/chat, api_base: "http://mock-vllm-a:8000/v1", api_key: none}}
-  - {model_name: chat, litellm_params: {model: openai/chat, api_base: "http://mock-vllm-b:8000/v1", api_key: none}}
-  # TODO 5.3: group "pool" is where you tune cooldowns
+  - model_name: chat
+    litellm_params: {model: openai/chat, api_base: "http://mock-vllm-a:8000/v1", api_key: none, weight: 20}
+    model_info: {id: chat-a, input_cost_per_token: 2e-6, output_cost_per_token: 2e-5}
+  - model_name: chat
+    litellm_params: {model: openai/chat, api_base: "http://mock-vllm-b:8000/v1", api_key: none, weight: 80}
+    model_info: {id: chat-b, input_cost_per_token: 2e-6, output_cost_per_token: 2e-5}
   - {model_name: pool, litellm_params: {model: openai/chat, api_base: "http://mock-vllm-a:8000/v1", api_key: none}}
   - {model_name: pool, litellm_params: {model: openai/chat, api_base: "http://mock-vllm-b:8000/v1", api_key: none}}
-  # TODO 5.2: ha (A) falls back to ha-backup (B)
   - {model_name: ha,        litellm_params: {model: openai/chat, api_base: "http://mock-vllm-a:8000/v1", api_key: none}}
   - {model_name: ha-backup, litellm_params: {model: openai/chat, api_base: "http://mock-vllm-b:8000/v1", api_key: none}}
-  # TODO 5.6: small (B, 2 000-token window) overflows to big (A, 32 000)
   - {model_name: small,  litellm_params: {model: openai/chat, api_base: "http://mock-vllm-b:8000/v1", api_key: none}}
   - {model_name: big,    litellm_params: {model: openai/chat, api_base: "http://mock-vllm-a:8000/v1", api_key: none}}
   # 5.5: the pool shared by chat users and the agent
   - {model_name: shared, litellm_params: {model: openai/chat, api_base: "http://mock-vllm-a:8000/v1", api_key: none}}
-  # TODO 5.4: prices (model_info.input_cost_per_token / output_cost_per_token) on every deployment of group "chat"
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
@@ -32,6 +31,11 @@ litellm_settings:
 router_settings:
   redis_host: valkey
   redis_port: 6379
-  # the existing entry below is the colleague's "so overflow goes to the big model" (see task 5.6)
-  fallbacks: [{"small": ["big"]}]
-  # TODO 5.1-5.6: routing_strategy, num_retries, allowed_fails, cooldown_time, fallbacks, context_window_fallbacks ...
+  routing_strategy: simple-shuffle
+  num_retries: 2
+  allowed_fails: 1
+  cooldown_time: 30
+  timeout: 30
+  enable_pre_call_checks: true
+  fallbacks: [{"small": ["big"]}, {"ha": ["ha-backup"]}]
+  context_window_fallbacks: [{"small": ["big"]}]

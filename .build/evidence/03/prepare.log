@@ -1,10 +1,10 @@
 stack.sh: containers exited non-zero (stack.sh logs <svc>):
-aiinfra-mock-vllm-a-1 Exited (1) 2 seconds ago
+aiinfra-mock-vllm-a-1 Exited (1) 1 second ago
 SERVICE       STATUS
-mock-dcgm-a   Up 4 seconds (healthy)
+mock-dcgm-a   Up 3 seconds (healthy)
 mock-dcgm-b   Up 3 seconds (healthy)
 mock-vllm-a   Exited (1) 2 seconds ago
-mock-vllm-b   Up 3 seconds (healthy)
+mock-vllm-b   Up 4 seconds (healthy)
 [PRE] mock-vllm-b healthy (:18022): ok
 [PRE] mock-vllm-a up (task 3.2 starts it broken: exited is expected until you fix lab/vllm-a/args): ok
 Ready. Read modules/03-vllm-ops/lab.md. Edit only files under lab/ marked 'yours'.

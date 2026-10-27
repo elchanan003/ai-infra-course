@@ -1,0 +1,2 @@
+prepare-lab: ready (profiles llm mock). Your llama-server: lab/bin/run-llama.sh (127.0.0.1:18120). Inputs: lab/variant/
+exit=0

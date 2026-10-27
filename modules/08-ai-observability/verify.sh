@@ -78,9 +78,9 @@ fi
 precond "prometheus ready" wait_http "$PROM_URL/-/ready" 30
 precond "grafana ready" wait_http "$GRAFANA_URL/api/health" 30
 precond "litellm healthy" wait_http "$LITELLM_URL/health/liveliness" 30
-precond "mock-vllm A and B healthy" bash -c "curl -sf $MOCK_A_URL/health >/dev/null && curl -sf $MOCK_B_URL/health >/dev/null"
+precond "mock-vllm A and B healthy" bash -c "curl -sf http://127.0.0.1:18021/health >/dev/null && curl -sf http://127.0.0.1:18022/health >/dev/null"
 precond "variant seeded" test -f "$MOD/.state/variant.json" || { echo "run ./prepare-lab.sh first"; summary; exit 1; }
-precond "no leftover faults" bash -c "curl -s -X DELETE $MOCK_A_URL/admin/fault >/dev/null; curl -s -X DELETE $MOCK_B_URL/admin/fault >/dev/null"
+precond "no leftover faults" bash -c "curl -s -X DELETE http://127.0.0.1:18021/admin/fault >/dev/null; curl -s -X DELETE http://127.0.0.1:18022/admin/fault >/dev/null"
 curl -s -m 10 -X POST "$PROM_URL/-/reload" >/dev/null; sleep 3   # verify reloads Prometheus for you
 
 # ---- own warm traffic: two keys through the gateway, direct engine traffic, one llama.cpp request

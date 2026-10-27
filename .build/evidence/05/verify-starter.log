@@ -1,0 +1,25 @@
+[PRE] gateway live: ok
+[PRE] mock A and B live: ok
+[PRE] host load low: ok
+[PASS] 5.1.1 200 requests on 'chat' all returned 200
+[FAIL] 5.1.2 deployment A served 97 / B 103 of 200; the target is 20% to A (about 40, band +-19) - a weighted split needs the right strategy and weights
+[FAIL] 5.1.3 group chat has deployment ids [2fe0f0c40331d5c5aed9e738f419050155c0d8d672a9791f804363f1723a9ee0,700bcb8280412320ddfd91517c1a1d0a31e195183c3123f06fef84947bed65f8], response id '700bcb8280412320ddfd91517c1a1d0a31e195183c3123f06fef84947bed65f8' - set stable model_info.id values chat-a and chat-b
+[FAIL] 5.2.1 A failing: 0/10 x 200, B served 0 - group ha must fall back to group ha-backup (fallbacks map group -> group)
+[PASS] 5.2.2 healthy A: 10/10 x 200 and B untouched
+[PASS] 5.2.3 both failing: clean HTTP 500 in 5s
+[FAIL] 5.3.1 A failing: 18/20 x 200, 10 requests reached A (limit 3) - a failing deployment should leave the group quickly, and retries should hide it from users
+[PASS] 5.3.2 after the fault was removed A served again after 4 s
+[PASS] 5.3.3 group ha still healthy (config intact)
+[FAIL] 5.4.1 spend of 20 calls = '0', expected 0.008400000000000001 from lab/PRICES.md - prices must be on every deployment of group chat (model_info) and spend is batch-written
+[FAIL] 5.4.2 SPEND_20='TODO' - compute 20 x (prompt tokens x prompt price + completion tokens x completion price) from lab/PRICES.md
+[BLOCKED] 5.4.3 KEY_BUDGET missing (provision.sh, task 5.4)
+[BLOCKED] 5.4.4 needs KEY_BUDGET
+[BLOCKED] 5.5.1 KEY_CHAT_USER / KEY_AGENT missing (provision.sh, task 5.5)
+[BLOCKED] 5.5.2 KEY_CHAT_USER / KEY_AGENT missing (provision.sh, task 5.5)
+[BLOCKED] 5.5.3 KEY_CHAT_USER / KEY_AGENT missing (provision.sh, task 5.5)
+[BLOCKED] 5.5.4 KEY_CHAT_USER / KEY_AGENT missing (provision.sh, task 5.5)
+[PASS] 5.6.1 long prompt on 'small' answered 200 by the big deployment
+[PASS] 5.6.2 short prompt stays on 'small'
+[FAIL] 5.6.3 ha with A failing returned 500 - the 5xx fallback from task 5.2 broke
+SCORE: 7/20
+exit=1

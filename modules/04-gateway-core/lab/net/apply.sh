@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
+# Lab 04 task 4.8 (yours): make the gateway the ONLY path from the client container to the backends.
+# Containers: aiinfra-lab04-client (the "client"), gateway aiinfra-litellm-1 (and -2 if running).
+# Networks: aiinfra (backends + gateway + client, as given), aiinfra-lab04-client (client-only network).
+# Must be idempotent. verify.sh runs it, then probes from inside the client container.
 set -uo pipefail
-C=aiinfra-lab04-client
-# gateway joins the client-only network; the client leaves the backend network
-for g in aiinfra-litellm-1 aiinfra-litellm-2-1; do
-  docker inspect "$g" >/dev/null 2>&1 && ! docker inspect "$g" --format '{{json .NetworkSettings.Networks}}' | grep -q aiinfra-lab04-client && docker network connect aiinfra-lab04-client "$g"
-done
-docker inspect "$C" --format '{{json .NetworkSettings.Networks}}' | grep -q '"aiinfra"' && docker network disconnect aiinfra "$C"
-exit 0
+# TODO 4.8

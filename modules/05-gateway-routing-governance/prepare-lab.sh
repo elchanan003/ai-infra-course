@@ -3,7 +3,7 @@
 # (lab/PRICES.md, lab/CAPACITY.md generated). Idempotent; never touches your lab/ files.
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
-TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+mkdir -p "$STATE"; TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 if [ ! -f "$STATE/variant.env" ]; then
   pins=(2e-6 3e-6 5e-6 1e-5); pouts=(4e-6 6e-6 1e-5 2e-5)
   i=$((RANDOM % 4)); j=$((RANDOM % 4))

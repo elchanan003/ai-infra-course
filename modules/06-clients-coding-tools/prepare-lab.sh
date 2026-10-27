@@ -4,7 +4,7 @@
 # Idempotent; never touches your lab/ sources.
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
-TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+mkdir -p "$STATE"; TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 chmod -R a+rX "$LAB"
 if [ ! -f "$STATE/variant.env" ]; then
   { echo "SYS_CHARS=$(( RANDOM % 8000 + 5000 ))"; echo "N_TOOLS=$(( RANDOM % 5 + 5 ))"; echo "N_TURNS=$(( RANDOM % 4 + 3 ))"; echo "SEED=$RANDOM"; } > "$STATE/variant.env"

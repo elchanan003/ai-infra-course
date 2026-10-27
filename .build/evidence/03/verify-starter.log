@@ -4,20 +4,19 @@
 [BLOCKED] 3.1b needs 3.1a
 [FAIL] 3.2a vllm-a does not start (or does not answer a completion): ValueError: To serve at least one request with the model's max seq len (131072), (16.0 GiB KV cache is needed, which is larger than the available KV cache memor (read the FIRST error in the log; see theory section 3)
 [BLOCKED] 3.2b needs 3.2a
-[PASS] 3.3a all 8 requests completed with 200
-[FAIL] 3.3b peak num_requests_running was 4 (<8): something limits the batch: sequence cap or KV room for the prompts (theory section 4, 7)
-[PASS] 3.3c no preemption
+[FAIL] 3.3a requests ok=8/8, peak num_requests_running=4: all 8 must be 200 AND run at the same time; something limits the batch: sequence cap or KV room for the prompts (theory sections 4, 7)
+[BLOCKED] 3.3b needs 3.3a
 [FAIL] 3.4a ttft.env has non-numeric/REPLACE_ME values
 [BLOCKED] 3.4b needs 3.4a
 [FAIL] 3.5a KV_PEAK is not within 0.05 of what the scripted burst produces (peak of vllm:kv_cache_usage_perc, a 0..1 fraction)
 [FAIL] 3.5b PREEMPTIONS differs from the counter delta of the burst (vllm:num_preemptions_total before/after)
 [FAIL] 3.5c LIMITER is wrong for this config/variant: compare running vs max_num_seqs, KV usage and preemptions at the peak (theory sections 6-8)
-[PASS] 3.6a p95 ITL within 0.1 s (attainment 1.0)
-[FAIL] 3.6b throughput 551.1 tok/s is below the floor of 1450: the batch is too small to keep the GPU busy (theory section 9)
-[PASS] 3.6c no preemption under the load
-[PASS] 3.6d fixed platform settings untouched (utilization 0.30, max length 4096)
+[FAIL] 3.6a throughput 548.3 tok/s is below the floor of 1450: the batch is too small to keep the GPU busy (theory section 9)
+[BLOCKED] 3.6b needs 3.6a
+[BLOCKED] 3.6c needs 3.6a
+[BLOCKED] 3.6d needs 3.6a
 [FAIL] 3.8a vllm-t does not start on node-2: ValueError: Free memory on device cuda:0 (21.0/24.0 GiB) on startup is less than desired GPU memory utilization (0.98, 23.52 GiB). Decrease GPU memory utilization or reduce GPU memory used by other pr
 [BLOCKED] 3.8b needs 3.8a
-[PASS] 3.8c same args still start on node-1 with max_model_len 8192 unchanged
-SCORE: 6/19
+[BLOCKED] 3.8c needs 3.8a
+SCORE: 0/18
 exit=1

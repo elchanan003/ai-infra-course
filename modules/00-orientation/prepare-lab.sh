@@ -49,7 +49,7 @@ wait_http "$LITELLM_URL/health/liveliness" 90 || { echo "prepare-lab: gateway no
 
 # ---- seed the ticket request (and decoys) once -------------------------------------------------
 TID="ticket-$(jq -r .ticket_id "$V")"
-have=$(docker exec aiinfra-postgres-1 psql -U llm -d litellm -tAc "select count(*) from \"LiteLLM_SpendLogs\" where \"user\"='$TID'" 2>/dev/null | tr -d '[:space:]')
+have=$(docker exec aiinfra-postgres-1 psql -U llm -d litellm -tAc "select count(*) from \"LiteLLM_SpendLogs\" where end_user='$TID'" 2>/dev/null | tr -d '[:space:]')
 if [ "${have:-0}" = 0 ]; then
   send() { curl -sS -o /dev/null --max-time 90 "$LITELLM_URL/v1/chat/completions" -H "Authorization: Bearer $LITELLM_KEY" -H 'Content-Type: application/json' \
       -d "$(jq -nc --arg u "$1" --arg p "$2" --argjson n "$3" '{model:"chat",messages:[{role:"user",content:$p}],max_tokens:$n,temperature:0,user:$u}')"; }

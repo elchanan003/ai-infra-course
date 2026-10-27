@@ -16,7 +16,7 @@ grep '^data: {' /tmp/aiinfra-00-stream.txt | sed 's/^data: //' | jq -s '{
 rm -f /tmp/aiinfra-00-stream.txt
 # 0.3: the ticket row
 TID="ticket-$(jq -r .ticket_id "$V")"
-docker exec aiinfra-postgres-1 psql -U llm -d litellm -tA -F'|' -c "select request_id, model_group, api_base, total_tokens, status from \"LiteLLM_SpendLogs\" where \"user\"='$TID' order by \"startTime\" desc limit 1" |
+docker exec aiinfra-postgres-1 psql -U llm -d litellm -tA -F'|' -c "select request_id, model_group, api_base, total_tokens, status from \"LiteLLM_SpendLogs\" where end_user='$TID' order by \"startTime\" desc limit 1" |
   jq -R 'split("|") | {request_id:.[0], model_group:.[1], api_base:.[2], total_tokens:(.[3]|tonumber), status:.[4]}' > "$LAB/answers/trace.json"
 # 0.4: layers + ports
 declare -A LAYER=( [litellm]=2 [postgres]=2 [valkey]=2 [llama-chat]=3 [llama-coder]=3 [llama-embed]=3 [open-webui]=1 [aider]=1 [seaweedfs]=4 [registry]=4 )

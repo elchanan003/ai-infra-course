@@ -1,6 +1,6 @@
 [PASS] C.1 no course containers left
-[FAIL] C.2 1 course network(s) still present
+[PASS] C.2 no course networks left
 [PASS] C.3 lab/ workspace files intact
 [PASS] C.4 variant assignment kept
-SCORE: 3/4
-exit=1
+SCORE: 4/4
+exit=0

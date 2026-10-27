@@ -13,8 +13,8 @@ if docker ps --format '{{.Names}}' | grep -qx "$PGC"; then
 fi
 for p in A B; do mock_fault "$p" DELETE >/dev/null 2>&1; done
 docker rm -f "$CLIENT_C" >/dev/null 2>&1
-docker network rm "$CLIENT_NET" >/dev/null 2>&1
 rm -rf "$STATE" "$LAB/out"
 mkdir -p "$LAB/out"
 "$PLATFORM_DIR/stack.sh" down >/dev/null 2>&1
+docker network rm "$CLIENT_NET" >/dev/null 2>&1
 echo "cleanup: lab keys/teams removed, client container+network removed, stack down"

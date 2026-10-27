@@ -1,0 +1,29 @@
+[PRE] stack llm answers: ok
+[FAIL] 1.1.1 raised NotImplementedError:  (case 1/6)
+[FAIL] 1.1.2 raised NotImplementedError:  (case 1/6)
+[FAIL] 1.1.3 fits raised NotImplementedError:
+[FAIL] 1.1.4 min_tp raised NotImplementedError:
+[FAIL] 1.2.1 WEIGHTS_GIB is not the weight memory of this variant model (params x bytes/param, in GiB)
+[FAIL] 1.2.2 KV_BYTES_PER_TOKEN is wrong: read num_key_value_heads/head_dim from lab/variant/model.json (head_dim may be missing) and the KV dtype
+[FAIL] 1.2.3 KV_POOL_GIB / MAX_SEQS differ from the budget gpu x util - weights - overhead at TP=1, divided by KV per sequence
+[FAIL] 1.6.1 min_tp_large is wrong for this variant (weights + KV for the required sequences, TP divisibility, util 0.92, 2 GiB per GPU)
+[FAIL] 1.6.2 max_seqs_at_min_tp is wrong: per-GPU KV pool after weights/TP and overhead, divided by the per-GPU KV of one sequence
+[FAIL] 1.6.3 mig_profile_small is not the smallest profile of the GPU family that holds weights + KV + overhead within util x slice memory (list in theory 6.4)
+[FAIL] 1.6.4 explain_no_tp3 must say that TP has to divide the attention heads and the KV heads
+[FAIL] 1.7.1 case 1/6: weights_gib = 8.03 for llama-3.1-8b tp=2 differs from the correct value (units, KV head count, tensor-parallel split are independent suspects)
+[BLOCKED] 1.7.2 needs 1.7.1 (a CLI that prints wrong numbers is not a working contract)
+[FAIL] 1.3.1 not all 4 concurrent ~1800-token prompts were served in full (statuses/prompt_tokens: [('400', 0), ('400', 0), ('400', 0), ('400', 0)]; per-slot n_ctx reported by /slots: [512, 512, 512, 512]) - how is the context divided between slots? (theory 3.1)
+[FAIL] 1.3.2 bench.py output is missing or differs by more than 1.5x from the counter-based throughput (verify measured 21.644472871684542 tok/s at PARALLEL=1, 27.612580827364855 at 4; yours x, x); stderr: Traceback (most recent call last):   File "/home/student/ai-infra-course/modules/01-serving-internals/lab/bench.py", line 50, in <module>     main()   File "/ho
+[FAIL] 1.3.3 batching.json: ratio must equal parallel4_tps/parallel1_tps, lie within 0.6-1.6x of the measured ratio (1.28) and why must name what makes concurrent decoding cheaper
+[FAIL] 1.4.1 second request reused only 19 of ~1143 shared tokens: what comes first in your prompt differs between requests (theory 4: strict prefix)
+[FAIL] 1.4.2 only 22 leading characters are identical between two calls (system+document are 7444): something volatile precedes them
+[FAIL] 1.4.3 cache.json: stable_prefix_tokens must match /tokenize of system + blank line + document (within 3%), cached_tokens_before <= 10% and cached_tokens_after >= 80% of it
+[FAIL] 1.5.1 file sizes are not the exact byte counts of the two GGUF files in lab/variant/models.txt (stat, not ls -h)
+Traceback (most recent call last):
+  File "/home/student/ai-infra-course/modules/01-serving-internals/.lib/checks.py", line 259, in <module>
+    globals()["cmd_" + sys.argv[1]](*sys.argv[2:])
+  File "/home/student/ai-infra-course/modules/01-serving-internals/.lib/checks.py", line 248, in cmd_quant
+    ok = str(a.get("ftype_q4", "")).strip().lower() == t["q4"]["ftype"].lower() and str(a.get("ftype_q8", "")).strip().lower() == t["q8"]["ftype"].lower() and lc(a.get("tensor_types_q4")) == t["q4"]["types"] and lc(a.get("tensor_types_q8")) == t["q8"]["types"]
+AttributeError: 'NoneType' object has no attribute 'lower'
+SCORE: 0/2
+exit=1

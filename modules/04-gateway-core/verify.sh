@@ -76,7 +76,7 @@ if [ "$KEYS_OK" = 1 ]; then
       pass 4.4.4 "request with nonce user is in LiteLLM_SpendLogs within the bounded poll"
     else fail 4.4.4 "no spend-log row for the nonce request within 30 s (HTTP $c) - spend is batch-written (proxy_batch_write_at) and needs a database"; fi
   else blocked 4.4.4 "needs KEY_CHAT_ONLY"; fi
-else for id in 4.4.2 4.4.3; do blocked $id "needs 4.1.4"; done; fi
+fi
 
 # ---------------------------------------------------------------- 4.3 limits (fresh keys)
 if [ "$KEYS_OK" = 1 ]; then
@@ -92,12 +92,12 @@ if [ "$KEYS_OK" = 1 ]; then
     got_tok=0; n200=0
     for i in 1 2 3 4 5 6 7 8; do c=$(req "$GW" "$K_TPM" chat "tpm $i $NONCE"); [ "$c" = 200 ] && n200=$((n200+1)); if [ "$c" = 429 ]; then grep -qi 'Limit type: tokens' "$TMP/body" && got_tok=1; break; fi; done
     c2=$(req "$GW" "$K_CHAT" chat "control $NONCE")
-    [ "$got_tok" = 1 ] && [ "$n200" -ge 1 ] && [ "$c2" = 200 ] && pass 4.3.4 "tpm key refused with 'Limit type: tokens' after $n200 request(s); control key unaffected" \
+    [ "$got_tok" = 1 ] && [ "$n200" -ge 1 ] && [ "$c2" = 200 ] && pass 4.3.4 "tpm key refused with 'Limit type: tokens' after its token budget; control key unaffected" \
       || fail 4.3.4 "tpm key: 200s=$n200, tokens-429=$got_tok, control=$c2 - tpm_limit must be low enough to trip within 8 small requests and is counted after the response"
   fi
   if [ -n "$K_LIM" ] && passed 4.3.1; then
     if within 75 bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer $K_LIM' -H 'Content-Type: application/json' -d '{\"model\":\"chat\",\"messages\":[{\"role\":\"user\",\"content\":\"recover\"}],\"max_tokens\":8}' $GW/v1/chat/completions)\" = 200 ]"; then
-      pass 4.3.3 "request limit recovered within 70 s ($(( $(date +%s) - start429 )) s after the burst)"
+      pass 4.3.3 "request limit recovered within 70 s"
     else fail 4.3.3 "no 200 within the recovery window - the limit window should reset at most 60 s after it started"; fi
   else blocked 4.3.3 "needs 4.3.1"; fi
 fi
@@ -131,11 +131,11 @@ if gw_wait "$GW2" 120 && gw_wait "$GW" 60 && [ "$KEYS_OK" = 1 ]; then
   else
     a_ok=0; for i in $(seq 1 "$L"); do c=$(req "$GW" "$K_LIM" chat "rep A $i $NONCE"); [ "$c" = 200 ] && a_ok=$((a_ok+1)); done
     b429=0; b200=0; for i in 1 2 3; do c=$(req "$GW2" "$K_LIM" chat "rep B $i $NONCE"); [ "$c" = 429 ] && b429=$((b429+1)); [ "$c" = 200 ] && b200=$((b200+1)); done
-    if [ "$a_ok" = "$L" ] && [ "$b429" = 3 ]; then pass 4.5.1 "limit $L holds across replicas ($a_ok x 200 on A, then 429 x3 on B)"
+    if [ "$a_ok" = "$L" ] && [ "$b429" = 3 ]; then pass 4.5.1 "limit holds across replicas ($L x 200 on A, then 429 x3 on B)"
     else fail 4.5.1 "A: $a_ok/$L x 200, B: $b200 x 200 / $b429 x 429 - the limit is per replica; rate-limit counters must live in a shared store"; fi
     h=$(keyhash "$K_LIM")
     nkeys=$(docker exec "$VALKEYC" valkey-cli --scan --pattern "*${h}*" 2>/dev/null | wc -l)
-    [ "$nkeys" -ge 1 ] && pass 4.5.2 "counter keys for the limited key exist in Valkey ($nkeys)" || fail 4.5.2 "no keys for the limited key in Valkey - the rate limiter is not using the shared store (check where Redis is configured, not just that it is)"
+    [ "$nkeys" -ge 1 ] && pass 4.5.2 "counter keys for the limited key exist in Valkey" || fail 4.5.2 "no keys for the limited key in Valkey - the rate limiter is not using the shared store (check where Redis is configured, not just that it is)"
   fi
   # 4.5.4 no response caching: identical request twice -> two spend rows, none a cache hit
   if [ -n "$K_CHAT" ]; then
@@ -152,7 +152,7 @@ if gw_wait "$GW2" 120 && gw_wait "$GW" 60 && [ "$KEYS_OK" = 1 ]; then
     t200=0; for i in 1 2; do c=$(req "$GW" "$ck" chat "ctl A $i"); [ "$c" = 200 ] && t200=$((t200+1)); done
     for i in 1 2; do c=$(req "$GW2" "$ck" chat "ctl B $i"); [ "$c" = 200 ] && t200=$((t200+1)); done
     if passed 4.5.1; then
-      [ "$t200" -gt 2 ] && pass 4.5.3 "control without shared store let $t200 requests pass a limit of 2 (your 4.5.1 is caused by your config)" || fail 4.5.3 "control behaved like a global limit ($t200 x 200) - verify environment problem"
+      [ "$t200" -gt 2 ] && pass 4.5.3 "control without shared store let more than 2 requests pass a limit of 2 (your 4.5.1 is caused by your config)" || fail 4.5.3 "control behaved like a global limit ($t200 x 200) - verify environment problem"
     else blocked 4.5.3 "needs 4.5.1"; fi
     admin POST /key/delete "$(jq -nc --arg a "verify-ctl-$NONCE" '{key_aliases:[$a]}')" >/dev/null
   else fail 4.5.3 "control stack did not come up"; fi
@@ -166,7 +166,7 @@ fi
 ( cd "$LAB/net" && timeout 120 bash ./apply.sh ) >"$TMP/net.log" 2>&1; nrc1=$?
 ( cd "$LAB/net" && timeout 120 bash ./apply.sh ) >>"$TMP/net.log" 2>&1; nrc2=$?
 probe() {  # probe URL [KEY] -> prints "200" | status | unresolvable | refused | timeout | error
-  docker exec "$CLIENT_C" python3 - "$1" "${2:-}" <<'PY' 2>/dev/null
+  docker exec -i "$CLIENT_C" python3 - "$1" "${2:-}" <<'PY' 2>/dev/null
 import sys,urllib.request,urllib.error,socket,json
 url,key=sys.argv[1],sys.argv[2]
 req=urllib.request.Request(url, data=(json.dumps({"model":"chat","messages":[{"role":"user","content":"net"}],"max_tokens":8}).encode() if key else None),

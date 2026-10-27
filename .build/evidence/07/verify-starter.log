@@ -16,12 +16,12 @@
 [BLOCKED] 7.2d needs 7.2a
 [BLOCKED] 7.3a needs 7.3b (a sandbox that denies nothing proves nothing)
 [FAIL] 7.3b net probe produced no result (exit 0): 
-[FAIL] 7.3c job could write to: /var/tmp/0592f2bfe837 /etc/0592f2bfe837 /usr/0592f2bfe837 /0592f2bfe837; a non-root user alone does not make /var/tmp read-only
+[FAIL] 7.3c job could write to: /var/tmp/b9eb6cc79324 /etc/b9eb6cc79324 /usr/b9eb6cc79324 /b9eb6cc79324; a non-root user alone does not make /var/tmp read-only
 [FAIL] 7.3d /tmp took 48 MiB: an uncapped writable area lets a job fill the disk (theory 4.2, tmpfs size)
 [FAIL] 7.3e 300 child processes were forked without hitting a limit: what bounds the number of processes in a container?
 [FAIL] 7.3f memory hog ran to completion (1024 MiB): no memory limit applies
 [FAIL] 7.3g identity inside the job: uid=0 CapEff=00000000a80425fb NoNewPrivs=0; a sandbox runs as nobody with no capabilities and cannot gain privileges
-[FAIL] 7.3h timeouts/cleanup: spin loop exit=0 in 25s, SIGTERM-ignoring exit=0 in 26s (want 124, <=14s), leaked containers=0, named+labelled=0. Two layers are needed: what stops a process that ignores SIGTERM?
+[FAIL] 7.3h timeouts/cleanup: spin loop exit=0 in 26s, SIGTERM-ignoring exit=0 in 25s (want 124, <=14s), leaked containers=0, named+labelled=0. Two layers are needed: what stops a process that ignores SIGTERM?
 [BLOCKED] 7.3i needs 7.3b
 [BLOCKED] 7.4a needs 7.3a (a working sandbox runner)
 [BLOCKED] 7.4b needs 7.3a (a working sandbox runner)

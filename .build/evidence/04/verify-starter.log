@@ -22,15 +22,13 @@
 [BLOCKED] 4.7.1 needs 4.1.4 (working aliases and keys)
 [BLOCKED] 4.7.2 needs 4.1.4 (working aliases and keys)
 [BLOCKED] 4.7.3 needs 4.1.4 (working aliases and keys)
-[BLOCKED] 4.4.2 needs 4.1.4
-[BLOCKED] 4.4.3 needs 4.1.4
 [BLOCKED] 4.5.1 second replica / keys not available (is your config valid? ../../platform/stack.sh logs litellm-2)
 [BLOCKED] 4.5.2 second replica / keys not available (is your config valid? ../../platform/stack.sh logs litellm-2)
 [BLOCKED] 4.5.3 second replica / keys not available (is your config valid? ../../platform/stack.sh logs litellm-2)
 [BLOCKED] 4.5.4 second replica / keys not available (is your config valid? ../../platform/stack.sh logs litellm-2)
-[FAIL] 4.8.1 client container: direct=/, via gateway= - the client must reach the gateway only (networks it shares with each)
-[FAIL] 4.8.2 network.env: token ok=n, DIRECT_RESULT='TODO' (observed ''), GATEWAY_RESULT='TODO' (observed ''), K8S_CONTROL='TODO' - report what you observe from the client container
+[FAIL] 4.8.1 client container: direct=200/200, via gateway=400 - the client must reach the gateway only (networks it shares with each)
+[FAIL] 4.8.2 network.env: token ok=n, DIRECT_RESULT='TODO' (observed '200'), GATEWAY_RESULT='TODO' (observed '400'), K8S_CONTROL='TODO' - report what you observe from the client container
 [FAIL] 4.8.3 BYPASS_LOSES='TODO' - list everything the gateway provides that a direct engine call skips
 [FAIL] 4.8.4 apply.sh exit 0/0, host gateway call=400: 
-SCORE: 0/31
+SCORE: 0/29
 exit=1

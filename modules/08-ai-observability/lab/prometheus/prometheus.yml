@@ -1,4 +1,3 @@
-# Task 8.1: Prometheus config for the AI stack (lab-only 5 s scrape interval).
 global:
   scrape_interval: 5s
   scrape_timeout: 4s
@@ -13,5 +12,21 @@ scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets: [localhost:9090]
-  # TODO 8.1: jobs `vllm` (two targets, label replica=a|b), `litellm` (note the metrics path), `llamacpp`.
-  # In-network names/ports: mock-vllm-a:8000, mock-vllm-b:8000, litellm:4000, llama-chat:8080 (platform/stack/README.md).
+
+  - job_name: vllm
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['mock-vllm-a:8000']
+        labels: {replica: a}
+      - targets: ['mock-vllm-b:8000']
+        labels: {replica: b}
+
+  - job_name: litellm
+    metrics_path: /metrics/        # /metrics answers 307 -> /metrics/
+    static_configs:
+      - targets: ['litellm:4000']
+
+  - job_name: llamacpp
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['llama-chat:8080']

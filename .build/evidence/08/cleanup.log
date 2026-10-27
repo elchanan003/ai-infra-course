@@ -1,0 +1,2 @@
+cleanup: module 08 runtime state removed (stack left as is; use platform/stack.sh down)
+exit=0

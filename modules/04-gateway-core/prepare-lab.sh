@@ -3,7 +3,7 @@
 # starts the client container for task 4.8. Idempotent; never touches lab/ files or answers.
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
-TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+mkdir -p "$STATE"; TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 chmod -R a+rX "$LAB"
 # per-learner variant (stable across prepares until cleanup)
 if [ ! -f "$STATE/variant.env" ]; then

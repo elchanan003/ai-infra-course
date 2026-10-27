@@ -1,0 +1,3 @@
+Helpdesk ticket: "my request from this morning looked slow and I was told it used a lot of tokens".
+Ticket id: ticket-86e209
+(The request was sent through the gateway with this value in the OpenAI "user" field.)

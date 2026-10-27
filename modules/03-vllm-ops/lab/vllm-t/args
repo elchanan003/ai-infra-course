@@ -1,1 +1,2 @@
---model /models/llama-3.1-8b --served-model-name chat --max-model-len 8192 --gpu-memory-utilization 0.85 --max-num-seqs 32
+# Task 3.8: starts on node-1, dies on node-2. Fix it for BOTH nodes; do not change --max-model-len.
+--model /models/llama-3.1-8b --served-model-name chat --max-model-len 8192 --gpu-memory-utilization 0.98 --max-num-seqs 32

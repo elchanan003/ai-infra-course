@@ -70,9 +70,8 @@ Steps/hints:
 3. Change the flags that matter (and only those that matter): seq cap, KV size/dtype, max length.
 
 Success criteria (verify runs its own load)
-- `3.3a` all 8 requests complete with 200 (no errors, none rejected).
-- `3.3b` peak `num_requests_running` ≥ 8 during the run.
-- `3.3c` `num_preemptions_total` delta == 0.
+- `3.3a` all 8 requests return 200 and run at the same time (peak `num_requests_running` >= 8).
+- `3.3b` `num_preemptions_total` delta == 0 while they run together.
 
 ## Task 4 (3.4) — p95 TTFT by hand from raw buckets
 
@@ -112,8 +111,8 @@ Steps/hints:
 3. Too low: throughput floor missed. Too high: preemption cliff and slower decode steps. Pick the knee with margin.
 
 Success criteria (verify replays the same load family with another seed, three runs, median)
-- `3.6a` at least 95% of inter-token gaps are ≤ 0.1 s.
-- `3.6b` output throughput ≥ 1450 tokens per virtual second.
+- `3.6a` output throughput ≥ 1450 tokens per virtual second (median of 3 runs).
+- `3.6b` at least 95% of inter-token gaps are ≤ 0.1 s.
 - `3.6c` preemptions == 0.
 - `3.6d` utilization and max length unchanged (0.30 / 4096).
 

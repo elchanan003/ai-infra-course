@@ -1,0 +1,6 @@
+[PASS] C.1 no course containers left
+[PASS] C.2 non-course containers untouched
+[PASS] C.3 lab/ workspace files intact
+[PASS] C.4 runtime state and generated files removed
+SCORE: 4/4
+exit=0

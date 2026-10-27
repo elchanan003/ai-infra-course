@@ -7,9 +7,9 @@
 - H4: see `.tutor/solve-answers.sh` (section 0.2).
 
 ## Task 0.3 (0.3.x) find the ticket
-- H1: where does the gateway write what it did per request? (Postgres, `LiteLLM_SpendLogs`; also `/spend/logs` and the UI.)
+- H1: where does the gateway write what it did per request? (Postgres, `LiteLLM_SpendLogs`, column `end_user` holds the OpenAI `user` field; also `/spend/logs` and the UI.)
 - H2: the ticket id is in the OpenAI `user` field; there are decoy rows from other tickets. Rows are batch-written, so a fresh request needs a few seconds.
-- H3: `docker exec aiinfra-postgres-1 psql -U llm -d litellm -c 'select request_id, model_group, api_base, total_tokens, status from "LiteLLM_SpendLogs" where "user"='"'"'ticket-XXXX'"'"`. Use the `api_base` as logged.
+- H3: `docker exec aiinfra-postgres-1 psql -U llm -d litellm -c 'select request_id, model_group, api_base, total_tokens, status from "LiteLLM_SpendLogs" where end_user='"'"'ticket-XXXX'"'"`. Use the `api_base` as logged.
 - H4: `.tutor/solve-answers.sh` (section 0.3).
 
 ## Task 0.4 (0.4.x) layers

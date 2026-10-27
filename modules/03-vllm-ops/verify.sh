@@ -22,9 +22,9 @@ chat_code() { curl -s -o /dev/null -w '%{http_code}' --max-time 20 "http://127.0
   -d '{"model":"chat","max_tokens":8,"messages":[{"role":"user","content":"hello verify"}]}'; }
 cap() { curl -s "http://127.0.0.1:$1/admin/stats" | python3 -c "import json,sys; print(json.load(sys.stdin)['capacity']['$2'])"; }
 maxlen() { curl -s "http://127.0.0.1:$1/v1/models" | python3 -c "import json,sys; print(json.load(sys.stdin)['data'][0].get('max_model_len',''))"; }
-q95() { python3 - "$@" <<'PY'   # stdin: bucket json {le: cum}; args: quantile -> value lower upper
-import json,sys
-b=json.load(sys.stdin); qq=float(sys.argv[1])
+q95() { BJ="$2" python3 - "$1" <<'PY'   # args: quantile, bucket json {le: cum} -> value lower upper
+import json,sys,os
+b=json.loads(os.environ["BJ"]); qq=float(sys.argv[1])
 items=sorted(((float(k) if k!='+Inf' else float('inf'),v) for k,v in b.items()))
 tot=items[-1][1]; rank=qq*tot; pl,pc=0.0,0.0
 for le,c in items:
@@ -85,11 +85,15 @@ if mockrun_start v3 "$LAB/vllm-b/args" "$LAB/vllm-b/gpu.yaml" 5 18163; then
   s200=$(echo "$r" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['status'].get('200',0))")
   pk=$(echo "$r" | python3 -c "import json,sys; print(int(json.load(sys.stdin)['peak_running']))")
   pre=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin)['preemptions'])")
-  [ "$s200" = 8 ] && pass 3.3a "all 8 requests completed with 200" || fail 3.3a "only $s200/8 requests returned 200 (engine up but requests rejected/failed: max length vs prompt+max_tokens?)"
-  [ "$pk" -ge 8 ] && pass 3.3b "peak running batch $pk >= 8" || fail 3.3b "peak num_requests_running was $pk (<8): something limits the batch: sequence cap or KV room for the prompts (theory section 4, 7)"
-  [ "$pre" = 0 ] && pass 3.3c "no preemption" || fail 3.3c "$pre preemptions: running sequences outgrew the KV pool (theory section 6)"
+  if [ "$s200" = 8 ] && [ "$pk" -ge 8 ]; then
+    pass 3.3a "all 8 requests ran together (peak running batch >= 8, all HTTP 200)"
+    [ "$pre" = 0 ] && pass 3.3b "no preemption while they ran together" || fail 3.3b "$pre preemptions: running sequences outgrew the KV pool (theory section 6)"
+  else
+    fail 3.3a "requests ok=$s200/8, peak num_requests_running=$pk: all 8 must be 200 AND run at the same time; something limits the batch: sequence cap or KV room for the prompts (theory sections 4, 7)"
+    blocked 3.3b "needs 3.3a"
+  fi
 else
-  fail 3.3a "vllm-b does not start: $(mockrun_first_error v3 | cut -c1-160)"; blocked 3.3b "needs 3.3a"; blocked 3.3c "needs 3.3a"
+  fail 3.3a "vllm-b does not start: $(mockrun_first_error v3 | cut -c1-160)"; blocked 3.3b "needs 3.3a"
 fi
 mockrun_stop v3
 
@@ -110,7 +114,7 @@ for l in open(sys.argv[1]):
 print(json.dumps(b))
 PY
 )
-  read -r tv tl tu <<<"$(echo "$buckets" | q95 0.95)"
+  read -r tv tl tu <<<"$(q95 0.95 "$buckets")"
   within_pct "$pv" "$tv" 10 && pass 3.4a "P95_TTFT_SECONDS within 10% of histogram_quantile on the snapshot" \
     || fail 3.4a "your p95 differs by >10% from histogram_quantile on the same buckets: find the bucket holding rank 0.95*count, then interpolate linearly inside it (theory 11)"
   if [ "$(python3 -c "print(int(abs(float('$lo')-float('$tl'))<1e-9 and abs(float('$up')-float('$tu'))<1e-9))")" = 1 ]; then
@@ -149,11 +153,16 @@ print(round(d['generation_tokens_delta']/max(d['virtual_time_s'],1e-9),1), round
     tps+=("$a"); itl+=("$b"); pre=$(( pre > c ? pre : c ))
   done
   mt=$(printf '%s\n' "${tps[@]}" | sort -n | sed -n 2p); mi=$(printf '%s\n' "${itl[@]}" | sort -n | sed -n 2p)
-  python3 -c "import sys; sys.exit(0 if float('$mi')>=0.95 else 1)" && pass 3.6a "p95 ITL within 0.1 s (attainment $mi)" || fail 3.6a "only $mi of inter-token gaps are <= 0.1 s: big prefill chunks / big batches stretch decode steps (theory section 4)"
-  python3 -c "import sys; sys.exit(0 if float('$mt')>=1450 else 1)" && pass 3.6b "throughput $mt tok/s >= 1450" || fail 3.6b "throughput $mt tok/s is below the floor of 1450: the batch is too small to keep the GPU busy (theory section 9)"
-  [ "$pre" = 0 ] && pass 3.6c "no preemption under the load" || fail 3.6c "preemptions occurred ($pre): the sequence cap exceeds what the fixed KV pool can hold for this load (theory sections 6, 9)"
-  ut=$(cap 18166 gpu_memory_utilization); ml=$(cap 18166 max_model_len)
-  [ "$ut" = 0.3 ] && [ "$ml" = 4096 ] && pass 3.6d "fixed platform settings untouched (utilization 0.30, max length 4096)" || fail 3.6d "utilization/max length were changed (got $ut / $ml): they are fixed for this shared GPU; tune the batch knobs only"
+  if python3 -c "import sys; sys.exit(0 if float('$mt')>=1450 else 1)"; then
+    pass 3.6a "output throughput meets the floor of 1450 tok/s (median of 3 runs)"
+    python3 -c "import sys; sys.exit(0 if float('$mi')>=0.95 else 1)" && pass 3.6b "p95 inter-token latency within 0.1 s at that throughput" || fail 3.6b "only $mi of inter-token gaps are <= 0.1 s: big prefill chunks / big batches stretch decode steps (theory section 4)"
+    [ "$pre" = 0 ] && pass 3.6c "no preemption under the load" || fail 3.6c "preemptions occurred ($pre): the sequence cap exceeds what the fixed KV pool can hold for this load (theory sections 6, 9)"
+    ut=$(cap 18166 gpu_memory_utilization); ml=$(cap 18166 max_model_len)
+    [ "$ut" = 0.3 ] && [ "$ml" = 4096 ] && pass 3.6d "fixed platform settings untouched (utilization 0.30, max length 4096)" || fail 3.6d "utilization/max length were changed (got $ut / $ml): they are fixed for this shared GPU; tune the batch knobs only"
+  else
+    fail 3.6a "throughput $mt tok/s is below the floor of 1450: the batch is too small to keep the GPU busy (theory section 9)"
+    blocked 3.6b "needs 3.6a"; blocked 3.6c "needs 3.6a"; blocked 3.6d "needs 3.6a"
+  fi
 else
   fail 3.6a "slo/args does not start: $(mockrun_first_error v6 | cut -c1-160)"; blocked 3.6b "needs 3.6a"; blocked 3.6c "needs 3.6a"; blocked 3.6d "needs 3.6a"
 fi
@@ -169,7 +178,8 @@ else
   fail 3.8a "vllm-t does not start on node-2: $(mockrun_first_error v7 | cut -c1-200)"; blocked 3.8b "needs 3.8a"
 fi
 mockrun_stop v7
-if mockrun_start v8 "$LAB/vllm-t/args" "$LAB/vllm-t/gpu.node1.yaml" 20 18168 && [ "$(maxlen 18168)" = 8192 ]; then
+if ! passed 3.8a; then blocked 3.8c "needs 3.8a"
+elif mockrun_start v8 "$LAB/vllm-t/args" "$LAB/vllm-t/gpu.node1.yaml" 20 18168 && [ "$(maxlen 18168)" = 8192 ]; then
   pass 3.8c "same args still start on node-1 with max_model_len 8192 unchanged"
 else fail 3.8c "args do not start on node-1, or --max-model-len changed from 8192 (the fix must work on both nodes without touching the context length)"; fi
 mockrun_stop v8

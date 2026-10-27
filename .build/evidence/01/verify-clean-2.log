@@ -1,0 +1,6 @@
+[PASS] C.1 no course containers left (stack and aiinfra-lab01-* gone)
+[PASS] C.2 no course networks left
+[PASS] C.3 lab/ workspace files intact
+[PASS] C.4 variant assignment kept
+SCORE: 4/4
+exit=0

@@ -1,0 +1,19 @@
+SERVICE       STATUS
+grafana       Up 33 seconds (healthy)
+litellm       Up 28 seconds (healthy)
+llama-chat    Up 31 seconds (healthy)
+llama-coder   Up 33 seconds (healthy)
+llama-embed   Up 33 seconds (healthy)
+mock-dcgm-a   Up 31 seconds (healthy)
+mock-dcgm-b   Up 33 seconds (healthy)
+mock-vllm-a   Up 34 seconds (healthy)
+mock-vllm-b   Up 33 seconds (healthy)
+postgres      Up 32 seconds (healthy)
+prometheus    Up 31 seconds (healthy)
+valkey        Up 32 seconds (healthy)
+[PRE] prometheus ready (:18090): ok
+[PRE] grafana ready (:18030): ok
+[PRE] litellm healthy (:18040): ok
+[PRE] mock-vllm A and B healthy: NOT OK
+Ready. Read modules/08-ai-observability/lab.md
+exit=0

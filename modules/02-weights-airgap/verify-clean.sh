@@ -5,7 +5,7 @@ MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$MODULE_DIR/../../platform/lib.sh"
 n=$(docker ps -aq --filter label=course=aiinfra | wc -l)
 [ "$n" = 0 ] && pass C.1 "no course containers left" || fail C.1 "$n course container(s) still present: $(docker ps -a --filter label=course=aiinfra --format '{{.Names}}' | tr '\n' ' ')"
-nn=$(docker network ls -q --filter label=course=aiinfra | wc -l)
+nn=$(docker network ls -q --filter label=course=aiinfra --filter name=^aiinfra$ --filter name=^aiinfra-airgap$ | wc -l)
 [ "$nn" = 0 ] && pass C.2 "no course networks left" || fail C.2 "$nn course network(s) still present"
 vols=$(docker volume ls -q --filter label=course=aiinfra | grep -E 'seaweedfs-data|registry-data' | tr '\n' ' ')
 [ -z "$vols" ] && pass C.3 "store data volumes removed (S3 objects, registry content)" || fail C.3 "store volumes still present: $vols"

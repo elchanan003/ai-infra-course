@@ -1,1 +1,1 @@
-04 FAIL starter=0/31 solution=29/31,29/31,29/31 identical=no clean=no
+04 PASS starter=0/29 solution=31/31,31/31,31/31 identical=yes clean=yes

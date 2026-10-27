@@ -4,9 +4,9 @@
 [FAIL] 0.2.1 content_chunks does not match a live replay of lab/request.json (count only chunks with non-empty delta.content; see theory 4.1)
 [FAIL] 0.2.2 prompt_tokens/completion_tokens differ from the live usage (is include_usage requested? usage comes from the engine's tokenizer)
 [FAIL] 0.2.3 finish_reason/usage_chunk_present wrong for this request (what ended generation: EOS or max_tokens? is usage in the stream only on request?)
-[BLOCKED] 0.3.1 the ticket row is missing from the spend log - run ./prepare-lab.sh
-[BLOCKED] 0.3.2 the ticket row is missing from the spend log - run ./prepare-lab.sh
-[BLOCKED] 0.3.3 the ticket row is missing from the spend log - run ./prepare-lab.sh
+[FAIL] 0.3.1 request_id is not the spend-log row of the ticket's user (filter on the end-user column, mind the decoy tickets)
+[FAIL] 0.3.2 model_group/api_base differ from the logged row (report what the gateway actually called, not what you assume)
+[FAIL] 0.3.3 total_tokens/status differ from the row (read the same row: prompt + completion)
 [FAIL] 0.4.1 layer of llama-coder (assign by the job the component performs) is wrong (theory 2: the assignment rule)
 [FAIL] 0.4.2 PORT of llama-coder does not match what docker ps publishes on 127.0.0.1 (none if not running/published)
 [FAIL] 0.5.1 alias coder returned HTTP 500: the gateway cannot reach its backend (read the gateway log, then probe the engine from inside the network; ladder in theory 6)

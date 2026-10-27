@@ -6,7 +6,6 @@ GW="${LITELLM_URL:-http://127.0.0.1:18040}"; MASTER="${LITELLM_KEY:-sk-aiinfra-m
 OWUI="${OWUI_URL:-http://127.0.0.1:18080}"
 PY="$PLATFORM_DIR/../platform/.venv/bin/python"
 PGC=aiinfra-postgres-1; OWUIC=aiinfra-open-webui-1
-mkdir -p "$STATE"
 pg() { docker exec "$PGC" psql -U llm -d litellm -tAc "$1" 2>/dev/null | tr -d '\r'; }
 admin() { local m="$1" p="$2" d="${3:-}"
   if [ -n "$d" ]; then curl -sS --max-time 30 -X "$m" -H "Authorization: Bearer $MASTER" -H 'Content-Type: application/json' -d "$d" "$GW$p"

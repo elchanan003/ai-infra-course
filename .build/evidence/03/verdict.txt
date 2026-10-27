@@ -1,1 +1,1 @@
-03 FAIL starter=6/19 solution=17/19,17/19,17/19 identical=no clean=yes
+03 PASS starter=0/18 solution=18/18,18/18,18/18 identical=yes clean=yes

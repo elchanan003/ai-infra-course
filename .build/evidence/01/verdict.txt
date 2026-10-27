@@ -1,0 +1,1 @@
+01 FAIL starter=0/2 solution=1/2,1/2,1/2 identical=no clean=yes
