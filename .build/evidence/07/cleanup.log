@@ -1,0 +1,2 @@
+cleanup: sandbox containers, helper processes, runtime state and lab key removed; stack down
+exit=0

@@ -1,0 +1,5 @@
+prepare-lab: ready (profiles gw llm).
+  Gateway  http://127.0.0.1:18040   (lab/litellm/config.yaml; reload: lab/bin/reload-gateway.sh)
+  Engines  chat :18011  coder :18012  embed :18013
+  Your files: lab/request.json (given), lab/TICKET.txt (given), lab/ARCH.env, lab/answers/*.json, lab/litellm/config.yaml
+exit=0

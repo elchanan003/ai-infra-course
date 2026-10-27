@@ -1,0 +1,4 @@
+prepare-lab: ready.
+  Gateway   http://127.0.0.1:18040  (config: lab/litellm/config.yaml; restart: ../../platform/stack.sh compose restart litellm)
+  Master key in lab/env.sample; client container for 4.8: aiinfra-lab04-client
+exit=0

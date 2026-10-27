@@ -1,0 +1,6 @@
+[PASS] C.1 no scratch containers left
+[PASS] C.2 no mock-vllm stack containers
+[PASS] C.3 scratch run dirs removed
+[PASS] C.4 lab/ untouched
+SCORE: 4/4
+exit=0

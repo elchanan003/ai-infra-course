@@ -1,0 +1,43 @@
+== 1. pull_policy: never on every compose service
+OK   1 all services pull_policy=never in platform/stack/compose.yaml
+== 2. no :latest / untagged images
+OK   2 versions.env images all tagged
+OK   2 no ':latest' refs in platform/ and modules/
+OK   2 no untagged image:/FROM refs
+== 3. images present locally
+OK   3 ghcr.io/ggml-org/llama.cpp:server-b11889
+OK   3 vllm/vllm-openai-cpu:v0.31.0
+SKIP VLLM_CPU_BROKEN_IMAGE (documented, not pulled)
+OK   3 ghcr.io/berriai/litellm-database:v1.106.4
+OK   3 pgvector/pgvector:pg17
+OK   3 valkey/valkey:9
+OK   3 ghcr.io/open-webui/open-webui:v0.12.4
+OK   3 langfuse/langfuse:3.225.14
+OK   3 langfuse/langfuse-worker:3.225.14
+OK   3 clickhouse/clickhouse-server:25.8
+OK   3 chrislusf/seaweedfs:4.51
+OK   3 registry:3
+OK   3 qdrant/qdrant:v1.20.0
+OK   3 prom/prometheus:v3.5.0
+OK   3 grafana/grafana:12.1.1
+OK   3 kindest/node:v1.33.1
+OK   3 python:3.12-slim
+OK   3 alpine:3.20
+OK   3 aiinfra-mock:1.0
+OK   3 aiinfra-tripwire:1.0
+== 4. models in cache (/home/student/.cache/aiinfra-course)
+OK   4 qwen2.5-0.5b-instruct-q4_k_m
+OK   4 qwen2.5-0.5b-instruct-q8_0
+OK   4 qwen2.5-coder-0.5b-q4_k_m
+OK   4 qwen2.5-coder-0.5b-q8_0
+OK   4 bge-small-en-v1.5-q4_k_m
+OK   4 bge-small-en-v1.5-q8_0
+OK   4 smollm2-360m-instruct
+OK   4 qwen2.5-0.5b-instruct
+== 5. venvs
+OK   5 .venv import huggingface_hub
+OK   5 .venv import mcp
+OK   5 .venv import openai
+OK   5 .venv hf CLI runs
+OK   5 .venv-aider aider --version
+== SUMMARY: 36 OK, 0 FAIL

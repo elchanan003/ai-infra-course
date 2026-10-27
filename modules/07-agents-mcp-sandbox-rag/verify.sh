@@ -130,7 +130,7 @@ if [ "$ok2" = 1 ]; then
   K=$((RANDOM % 7 + 6)); SENT=""; for _ in $(seq $K); do SENT="$SENT w$(NONCE)"; done
   R=$(mcp call word_count "$(jq -nc --arg t "$SENT" '{text:$t}')")
   [ "$(jq -r '.text' <<<"$R" 2>/dev/null)" = "$K" ] && [ "$(jq -r '.is_error' <<<"$R" 2>/dev/null)" = false ] \
-    && pass 7.2b "word_count counted $K nonce words" || fail 7.2b "word_count of a $K-word sentence returned: $(jq -c . <<<"$R" 2>/dev/null | head -c 200)"
+    && pass 7.2b "word_count counted a nonce-word sentence correctly" || fail 7.2b "word_count of a $K-word sentence returned: $(jq -c . <<<"$R" 2>/dev/null | head -c 200)"
   R=$(mcp call ticket_status "$(jq -nc --arg t "$W2" '{ticket_id:$t}')")
   grep -q "$N3" <<<"$(jq -r '.text' <<<"$R" 2>/dev/null)" && pass 7.2c "ticket_status returned the record from the ticket file (nonce present)" \
     || fail 7.2c "ticket_status did not return the record of $W2 from \$TICKETS_JSON: $(jq -c . <<<"$R" 2>/dev/null | head -c 200)"
@@ -264,7 +264,7 @@ PY
       pass 7.4b "raising code: exit_code $ec, traceback in stderr, server alive"
     else fail 7.4b "a script that raises must come back as exit_code != 0 with the traceback in stderr, and the server must survive: $(printf '%s' "$R" | head -c 250)"; fi
     mkprobe spin45; call_py "$(cat "$W/spin45.py")" 600
-    if [ "$(jq -r .timed_out <<<"$RES" 2>/dev/null)" = true ] && [ $ELAPSED -le 42 ]; then pass 7.4c "timeout_s=600 was clamped: timed_out true after ${ELAPSED}s"
+    if [ "$(jq -r .timed_out <<<"$RES" 2>/dev/null)" = true ] && [ $ELAPSED -le 42 ]; then pass 7.4c "timeout_s=600 was clamped: timed_out true within the cap"
     else fail 7.4c "spin loop with timeout_s=600: timed_out=$(jq -r .timed_out <<<"$RES" 2>/dev/null) after ${ELAPSED}s (must be true within ~33 s): the model controls timeout_s, you control the maximum"; fi
     within 15 no_sbx
     [ "$(sbx_left)" = 0 ] && pass 7.4d "no sbx-* container left after success, error and timeout" || fail 7.4d "$(sbx_left) sbx-* container(s) left after the calls"

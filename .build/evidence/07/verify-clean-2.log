@@ -1,0 +1,7 @@
+[PASS] C.1 no course containers left (stack down, no sandbox containers)
+[PASS] C.2 no sbx-* containers
+[PASS] C.3 runtime state and helper processes gone
+[PASS] C.4 non-course containers untouched
+[PASS] C.5 lab/ workspace files intact
+SCORE: 5/5
+exit=0

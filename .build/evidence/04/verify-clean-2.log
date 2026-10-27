@@ -1,0 +1,8 @@
+[PASS] C.1 no course containers left
+[FAIL] C.2 client network still present
+[PASS] C.3 non-course containers untouched
+[PASS] C.4 lab/ workspace files intact
+[FAIL] C.5 runtime state .state/ still present
+[PASS] C.6 data volumes kept (cleanup is not a wipe)
+SCORE: 4/6
+exit=1

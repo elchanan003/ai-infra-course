@@ -1,0 +1,7 @@
+# vLLM flags of serving replica A (reference solution): max-num-seqs sized to the KV budget with margin, prefix caching back on.
+--model /models/qwen2.5-7b
+--served-model-name chat
+--max-model-len 4096
+--gpu-memory-utilization @UTIL@
+--max-num-seqs @SEQS@
+--seed 0

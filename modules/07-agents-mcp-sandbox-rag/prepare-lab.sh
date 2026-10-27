@@ -25,9 +25,13 @@ curl -fsS -o /dev/null -X DELETE "$MOCK_A_URL/admin/stats" || true
 curl -fsS -o /dev/null -X DELETE "$MOCK_A_URL/admin/fault" || true
 
 # lab key limited to the two aliases this module needs
-have=$(litellm_api "/key/info?key=$LAB_KEY_VALUE" | jq -r '.info.key_alias // empty' 2>/dev/null)
-if [ -z "$have" ]; then
-  litellm_api /key/generate -d "{\"key\":\"$LAB_KEY_VALUE\",\"key_alias\":\"lab07\",\"models\":[\"mock-a\",\"embed\"]}" >/dev/null
+lab_key_ok() { [ "$(litellm_code "$LAB_KEY_VALUE" mock-a ping)" = 200 ]; }
+if ! lab_key_ok; then
+  # key/info can report a key the auth path does not see yet (cache/DB lag): (re)generate and retry
+  for _try in 1 2 3 4; do
+    litellm_api /key/generate -d "{\"key\":\"$LAB_KEY_VALUE\",\"key_alias\":\"lab07\",\"models\":[\"mock-a\",\"embed\"]}" >/dev/null 2>&1
+    sleep 3; lab_key_ok && break
+  done
 fi
 [ "$(litellm_code "$LAB_KEY_VALUE" mock-a ping)" = 200 ] || { echo "prepare-lab: lab key does not work on alias mock-a"; exit 1; }
 

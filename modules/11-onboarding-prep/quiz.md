@@ -1,4 +1,4 @@
-# 11 — Quiz: onboarding prep
+# 11 - Quiz: onboarding prep
 
 1. The team serves models with Triton + TensorRT-LLM. What artifact exists here that did not in your vLLM lab, and what does it mean for the air-gap pipeline?
 2. Your team uses KServe. Map `InferenceService`, runtime and modelcar onto the pieces of your lab (Deployment, engine args, weights).
@@ -12,3 +12,5 @@
 10. Give two signs that gateway keys and limits are not managed as code, and why that matters for incidents like capstone 1.
 11. Your team runs Ray Serve with `serve.llm`. Which of your concepts map to Ray Serve autoscaling, and what do you need to learn that is Ray-specific?
 12. What is a good first PR for a new member of an AI-platform team, and why that kind?
+13. The team migrated from vLLM to SGLang last month. Name two things in the monitoring that probably broke silently, and why nobody noticed.
+14. A mentor asks "have you run this on real GPUs?". Which parts of this course were simulated, and how do you answer honestly and usefully?

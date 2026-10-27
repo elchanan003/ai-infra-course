@@ -1,0 +1,1 @@
+--model /models/llama-3.1-8b --served-model-name chat --max-model-len 8192 --gpu-memory-utilization 0.85 --max-num-seqs 32

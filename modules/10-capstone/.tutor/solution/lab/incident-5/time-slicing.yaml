@@ -1,0 +1,17 @@
+# GPU time-slicing configuration (reference solution): the resource name must be exactly nvidia.com/gpu.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: time-slicing-config
+  namespace: gpu-operator
+  labels: {course: aiinfra}
+data:
+  any: |-
+    version: v1
+    flags:
+      migStrategy: none
+    sharing:
+      timeSlicing:
+        resources:
+          - name: nvidia.com/gpu
+            replicas: @REPL@

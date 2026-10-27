@@ -3,9 +3,11 @@
 set -uo pipefail
 MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$MODULE_DIR/../../platform/lib.sh"
-n=$(docker ps -aq --filter label=course=aiinfra | wc -l)
+# containers of other modules' labs (aiinfra-labNN-*, NN != 07) are not this module's state
+mine() { docker ps -a --filter label=course=aiinfra --format '{{.Names}}' | grep -Ev '^aiinfra-lab(0[0-6]|0[89]|1[0-9])-' ; }
+n=$(mine | wc -l)
 [ "$n" = 0 ] && pass C.1 "no course containers left (stack down, no sandbox containers)" \
-  || fail C.1 "$n course container(s) still present: $(docker ps -a --filter label=course=aiinfra --format '{{.Names}}' | tr '\n' ' ')"
+  || fail C.1 "$n course container(s) still present: $(mine | tr '\n' ' ')"
 s=$(docker ps -aq --filter name=sbx- | wc -l)
 [ "$s" = 0 ] && pass C.2 "no sbx-* containers" || fail C.2 "$s sbx-* container(s) left"
 left=""

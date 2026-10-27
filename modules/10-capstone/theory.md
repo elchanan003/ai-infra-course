@@ -249,7 +249,7 @@ Same principles as in the observability course:
   recurrence** (CI check of config, canary, limit-by-default key template, checksum gate in the sync
   pipeline, admission policy).
 
-Template: `Summary / Impact / Timeline / Root cause / Detection / Resolution / Action items`.
+Template (shipped in `lab/postmortem-N.md`): `Summary / Impact / Timeline / Root cause / Mitigation and fix / Detection / Action items`.
 
 AI-specific postmortem prompts: which model/alias and which teams were affected? Did tokens or
 spend change (cost impact)? Were any completions wrong rather than failed (artifact integrity)? Did
@@ -257,14 +257,23 @@ anything leave the air gap?
 
 ## 9. How the capstone works
 
-- `./prepare-lab.sh N` converges the profiles incident N needs, rebuilds a clean baseline, waits
-  for a few minutes of healthy traffic in Prometheus ("before"), then plants the fault. Only the
-  page is shown. Re-running gives a fresh copy with a new hidden variant.
-- Incidents 1-4 run on the compose stack (`gw`, `mock`, `obs`, `store` as needed); incident 5 runs on `kind`.
-  `prepare-lab.sh` converges the stack, so earlier incidents' containers are replaced.
-- You fix, answer (`lab/answers/N-*.env`), write `lab/postmortem-N.md`, run `./verify.sh N`.
-- The source of truth for each incident is a set of files under `lab/incident-N/`; the lab mounts
-  or applies them. Runtime-only changes do not count.
+- `./prepare-lab.sh N` converges the profiles incident N needs, writes the incident's files under
+  `lab/incident-N/`, replays a short healthy baseline ("before"), then plants the fault and prints
+  only the page, including the UTC **incident window** you should query in Prometheus. Re-running gives
+  a fresh copy with a new hidden variant (your previous folder is saved as `lab.bak-prepare-*`).
+- Incidents 1-3 run on the compose stack (`gw`, `gw2`, `mock`, `obs`), incident 4 on `store` plus a throw-away
+  engine container on the air-gapped network, incident 5 on `kind` (compose is stopped). `prepare-lab.sh`
+  converges the stack, so earlier incidents' containers are replaced.
+- You investigate with the signals, fix the files, restart with the given helper (`restart.sh`, `apply.sh`,
+  `apply-keys.sh`, `rollout.sh` inside `lab/incident-N/`), fill `lab/answers/N-*.env` and
+  `lab/postmortem-N.md`, then run `./verify.sh N`.
+- `verify.sh` re-creates the situation itself: it restores the GIVEN files, restarts the affected components
+  from **your** files, re-asserts simulated hardware faults, generates its own load with fresh nonces and measures
+  behaviour. Runtime-only changes (admin APIs, `docker exec`, hand-patched nodes) do not survive that.
+- Graded per incident: N.1 and N.2 (durable fix and live behaviour, incident-specific), N.3 root cause, N.4 evidence
+  against live data of your variant, N.5 postmortem. `./verify.sh --status` shows your scores.
+- Simulated: the engines, GPUs and Kubernetes GPU capacity. Real: gateway, Postgres/Valkey, Prometheus, registry,
+  tripwire, the Docker air-gap network, the Kubernetes scheduler.
 
 ## Key takeaways
 

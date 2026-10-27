@@ -1,0 +1,36 @@
+[PRE] gateway live: ok
+[PRE] postgres reachable: ok
+[PRE] host load low: ok
+[FAIL] 4.1.1 /v1/models returned []: aliases (model_name) missing - the client-facing names come from model_list
+[FAIL] 4.1.2 chat via alias returned HTTP 400 (/chat/completions: Invalid model name passed in model=chat. Call `/v1/models` to view available models for your key.) - check the provider prefix, api_base (with /v1) and backend name
+[FAIL] 4.1.3 embedding via alias returned HTTP 400 dim=0 (backend 384) - alias or api_base of the embedding model
+[FAIL] 4.1.4 a generated key with models [chat] got HTTP 400 on chat - alias/model_list or backend problem
+[BLOCKED] 4.2.1 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.2.2 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.2.3 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.2.4 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.3.1 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.3.2 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.3.3 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.3.4 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.4.1 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.4.2 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.4.3 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.4.4 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.6.1 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.6.2 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.7.1 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.7.2 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.7.3 needs 4.1.4 (working aliases and keys)
+[BLOCKED] 4.4.2 needs 4.1.4
+[BLOCKED] 4.4.3 needs 4.1.4
+[BLOCKED] 4.5.1 second replica / keys not available (is your config valid? ../../platform/stack.sh logs litellm-2)
+[BLOCKED] 4.5.2 second replica / keys not available (is your config valid? ../../platform/stack.sh logs litellm-2)
+[BLOCKED] 4.5.3 second replica / keys not available (is your config valid? ../../platform/stack.sh logs litellm-2)
+[BLOCKED] 4.5.4 second replica / keys not available (is your config valid? ../../platform/stack.sh logs litellm-2)
+[FAIL] 4.8.1 client container: direct=/, via gateway= - the client must reach the gateway only (networks it shares with each)
+[FAIL] 4.8.2 network.env: token ok=n, DIRECT_RESULT='TODO' (observed ''), GATEWAY_RESULT='TODO' (observed ''), K8S_CONTROL='TODO' - report what you observe from the client container
+[FAIL] 4.8.3 BYPASS_LOSES='TODO' - list everything the gateway provides that a direct engine call skips
+[FAIL] 4.8.4 apply.sh exit 0/0, host gateway call=400: 
+SCORE: 0/31
+exit=1

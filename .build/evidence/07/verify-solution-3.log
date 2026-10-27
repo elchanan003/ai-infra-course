@@ -1,0 +1,42 @@
+[PRE] gateway up: ok
+[PRE] lab key works on mock-a (run ./prepare-lab.sh): ok
+[PRE] mock-chat script loaded on mock-vllm A: ok
+[PRE] embedding alias answers: ok
+[PRE] Qdrant up: ok
+[PRE] tripwire up: ok
+[PRE] sandbox image present (python:3.12-slim): ok
+[PRE] venv python: ok
+[PASS] 7.1a final answer carries the nonce that only exists in the tool result, stdout holds only the answer
+[PASS] 7.1b second request carries the assistant tool_calls and a tool message with the matching tool_call_id
+[PASS] 7.1c two tool calls in one message: both answered, each result attached to its own tool_call_id
+[PASS] 7.1d step limit enforced: exit 2 after exactly 3 model calls
+[PASS] 7.2a tools/list: exactly word_count and ticket_status, described, typed object schemas with the right required parameter
+[PASS] 7.2b word_count counted a nonce-word sentence correctly
+[PASS] 7.2c ticket_status returned the record from the ticket file (nonce present)
+[PASS] 7.2d unknown tool rejected (error result), server still serves requests
+[PASS] 7.3a benign job runs: prints its nonce and uses /tmp (hardening did not break the sandbox)
+[PASS] 7.3b no network interface besides lo, outbound connect and DNS fail
+[PASS] 7.3c root filesystem not writable (/var/tmp, /etc, /usr, /)
+[PASS] 7.3d /tmp is writable but capped (wrote 16 MiB before ENOSPC)
+[PASS] 7.3e fork bomb contained after 62 processes
+[PASS] 7.3f memory hog killed (exit 137) at ~248 MiB, swap equals memory
+[PASS] 7.3g uid 65534, no effective capabilities, no-new-privileges set
+[PASS] 7.3h spin loop and SIGTERM-ignoring job both end with exit 124 within the timeout+grace, no sbx-* container left, containers are named sbx-* and labelled
+[PASS] 7.3i control: same caps with an open network DOES reach the tripwire (1 hit), so 7.3b measures your --network choice
+[PASS] 7.4a run_python returned the right stdout (shell metacharacters survived) and exit_code 0 through a real MCP client
+[PASS] 7.4b raising code: exit_code 1, traceback in stderr, server alive
+[PASS] 7.4c timeout_s=600 was clamped: timed_out true within the cap
+[PASS] 7.4d no sbx-* container left after success, error and timeout
+[PASS] 7.4e hostile network code through the tool: no interface, connect and DNS fail
+[PASS] 7.4f 300000 bytes of output were cut to 65536
+[PASS] 7.5a collection exists: size 384 (the embedding model's dimension), Cosine
+[PASS] 7.5b points_count 19 == 19 non-empty paragraphs (.md/.txt only)
+[PASS] 7.5c payloads (source, chunk_index, text) match the paragraphs exactly
+[PASS] 7.5d re-running ingest left points_count at 19 (idempotent)
+[PASS] 7.5e two known facts rank first; 3 lines of '<score>\t<source>#<chunk_index>\t<first line>' each
+[PASS] 7.5f embeddings were batched (all 19 chunks embedded in few requests)
+[PASS] T.1 the job sees no Docker socket and no host path besides its job directory
+[PASS] T.3 inspected on the live container: no socket/host-/etc mount, not privileged
+[PASS] T.2 benign job still runs and prints its nonce
+SCORE: 32/32
+exit=0

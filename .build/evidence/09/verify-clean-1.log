@@ -1,6 +1,6 @@
-[FAIL] C.1 1 course containers still exist (docker ps -a --filter label=course=aiinfra)
+[PASS] C.1 no course containers left
 [PASS] C.2 no kind cluster aiinfra
 [PASS] C.3 variant state removed
 [PASS] C.4 lab/ is intact
-SCORE: 3/4
-exit=1
+SCORE: 4/4
+exit=0

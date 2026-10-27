@@ -1,7 +1,11 @@
-# 11 — Tutor answers
+# 11 - Tutor answers
 
-The lab has no hidden answers; `verify.sh` checks only structure (14 skills rated, >= 10 questions in >= 4 sections, 5 days planned).
-Review content with the learner: are the questions ordered by impact, do the self-ratings match module scores, is each plan day an output (not "learn X")?
+The lab has no hidden answers. `verify.sh` checks structure only: 11.1 (14 named skills rated, >= 2 distinct ratings, own next step >= 4 words for ratings 1-3), 11.2 (>= 10 distinct questions of >= 6 words ending in `?`, >= 4 sections, no verbatim theory bullets, no placeholders), 11.3 (5 days with focus and output), 11.4 (outputs are artefacts and distinct), T.1 (the planted Day 2 "tune/restart production" must go).
+Review content with the learner: are the questions ordered by impact, do the self-ratings match module scores, is each plan day an output (not "learn X")? Questions about the real team go into "Open questions for the team" in PROGRESS.md.
+
+Honesty: there is nothing to simulate in this module. Remind the learner that the whole course ran on mocks for GPU behaviour and that week 1 should name that gap (theory 1.11, 5.3).
+
+Common mistakes: all skills rated 4 (suspiciously uniform), next steps like "study more", questions that are really statements, plans whose outputs are "understanding", keeping the colleague's Day 2.
 
 ## Quiz
 1. The compiled TensorRT-LLM **engine** (built per GPU architecture, TensorRT-LLM version, TP degree) plus the model repository layout. The air-gap pipeline must carry the built engines (or the toolchain and a build node with the same GPU type), pin versions, and checksum them; weights alone are not enough.
@@ -16,3 +20,5 @@ Review content with the learner: are the questions ordered by impact, do the sel
 10. Keys edited by hand in a UI or `curl` history with no repo trail; no template for the agent vs chat key; limits differ between replicas or environments; causes drift and uncapped keys (the planted state of capstone 1).
 11. Request queue/concurrency-based autoscaling = replicas and `max_num_seqs`/queue signals; Ray-specific: actors, deployments, `RayService` CRD, cluster autoscaler, placement groups for TP.
 12. Docs/runbook fix, alert labels, a dashboard panel, or a key template: small, reviewable, teaches the change workflow and builds trust without touching production behaviour.
+13. Metric prefix (`sglang:*`, enable with `--enable-metrics`) and names (`sglang:num_queue_reqs`, `sglang:token_usage`) differ, so vLLM dashboards show no data and alert rules on `vllm:*` never fire (absence looks like health). Also: flag names (`--mem-fraction-static`, `--max-running-requests`), scrape config/ServiceMonitor, runbooks.
+14. Honest version: mechanisms and failure symptoms practised in a simulator (mock-vllm, mock-dcgm, fake nvidia-smi, node patch), real software for gateway/observability/registry on CPU, but no hands-on with real GPUs, drivers, MIG reconfiguration or XID in hardware; ask for a supervised first operation (node drain, rollout with rollback) in the first month.

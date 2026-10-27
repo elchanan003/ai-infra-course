@@ -1,15 +1,26 @@
-# 10 — Tutor answers
+# 10 - Tutor answers
 
-Do not show before the learner has a hypothesis. Incident mechanics, evidence keys and checks: `.tutor/design.md`.
-The per-incident expected answers table (variant-dependent values) is added in phase 2 once `prepare-lab.sh` exists.
+Do not show before the learner has a hypothesis. Mechanics of each check: `design.md`; helper layout: `lib/`. All variant values are hidden in `.state/` (never print them).
 
-| # | COMPONENT | CAUSE | Notes |
-|---|---|---|---|
-| 1 | gateway | rate-limit-misconfig | agent key without `max_parallel_requests`/rpm cap; two replicas not sharing Valkey so limits are per replica |
-| 2 | serving | kv-cache-exhaustion | `--max-num-seqs` raised, prefix caching off, KV 100%, preemptions, queue |
-| 3 | gpu | hardware-fault | XID (variant 79 or 48) on one node; router has no cooldown/timeout/fallback (contributing) |
-| 4 | artifact | artifact-integrity | tokenizer missing + one corrupt shard; `HF_HUB_OFFLINE` unset caused tripwire hits (contributing) |
-| 5 | kubernetes | scheduling-config | time-slicing resource entry yields capacity 0 + missing toleration for the new pool taint |
+## Expected lab answers
+
+| # | COMPONENT | CAUSE | Planted | Evidence (variant-bound; tolerance) |
+|---|---|---|---|---|
+| 1 | gateway | rate-limit-misconfig | agent key without `rpm_limit`/`max_parallel_requests`; replicas without `cache`/`cache_params` so limit counters are per replica; team quota 30/36/42 rpm; chat reserve 12 | `HEAVY_KEY_ALIAS=agent-<hex>`, `TEAM_RPM_LIMIT` exact, `CHAT_429_COUNT` +-25 % (min 3) of what the chat key got in the batch window, `LIMIT_SCOPE=per-replica` |
+| 2 | serving | kv-cache-exhaustion | release set `--max-num-seqs` 80/96/128 (was 24), `--no-enable-prefix-caching`, decoys seed/log level/stats; GPU 24 GiB with 4/5/6 GiB held by another process | `KV_PEAK` +-4 points, `PREEMPTIONS` +-20 %, `PEAK_WAITING` +-25 %, `PLANTED_MAX_NUM_SEQS` exact (all but the last from Prometheus over the printed window) |
+| 3 | gpu | hardware-fault | XID 79 or 48 + thermal 89-94 C on one GPU of node a/b, its mock-vllm slow (6 s) and 30 % errors, re-asserted at every verify; router `num_retries 0`, `allowed_fails 1000`, `cooldown_time 1` | `AFFECTED_NODE`, `XID_CODE`, `GPU_UUID` exact, `DRAIN_DECISION=drain`, `TEMP_C` +-3 |
+| 4 | artifact | artifact-integrity | `tokenizer.json` missing, one of two shards with a flipped byte, `HF_HUB_OFFLINE` unset with an endpoint `https://models-<hex>.corp.internal` | `MISSING_FILE`, `BAD_FILE`, `BAD_SHA` (12 hex of the corrupt file), `TRIPWIRE_HOST` exact, `TRIPWIRE_HITS` 1..3x+3 |
+| 5 | kubernetes | scheduling-config | new-pool node tainted `pool-<hex>=gpu:NoSchedule`, pod selects the pool but has no toleration; time-slicing names a wrong resource so `nvidia.com/gpu` allocatable is 0 | `NODE_NAME`, `TAINT_KEY`, `WRONG_RESOURCE` exact, `FIRST_REASON=untolerated-taint`, `SECOND_REASON=insufficient-gpu`, `GPU_CAPACITY_AFTER` = 2 x replicas, read live |
+
+Reference fixes: `.tutor/solution/lab/` (config, keys, args template, model/time-slicing manifests, postmortems). Reference timings: see `.build/evidence/10/`.
+
+## Common mistakes (what verify says, and what to ask)
+- Inc 1: only `keys.yaml` capped -> 1.1 fails (per-replica counters give 5 x 200 for a limit of 3): "where does a limiter keep its state?". Only the cache fixed -> 1.2 fails (agent still eats the team quota). Cap set to the whole team quota -> 1.2 "policy leaves it at most team - 12". Choosing `runaway-client`: there was no enforced agreement.
+- Inc 2: `max_num_seqs` exactly at the KV fit -> KV peak 96-100 % fails the 95 % rule (margin!). Shrinking `max-model-len` -> 2.1 rejects (contract 4,096). `max_num_seqs 1` -> TTFT SLO fails through the queue. Blaming "capacity" because the GPU is 99 % busy: busy is redoing prefill (preemptions).
+- Inc 3: draining the node only (no router change) -> verify re-asserts the fault, 3.1 fails; `allowed_fails` low but `cooldown_time` 600 -> "ejection must be temporary"; timeout 3 with 2 retries -> a user waits 6 s > 5.5 s.
+- Inc 4: fixing files but not HF_HUB_OFFLINE -> 4.2 sees DNS lookups; setting offline but leaving the bad shard -> 4.1 manifest mismatch; replacing the shard before taking its sha -> BAD_SHA unrecoverable (re-run prepare); editing MANIFEST.sha256 -> restored by verify. Remember the lesson: a running engine is not proof of integrity.
+- Inc 5: removing the nodeSelector (pod lands on the legacy node) -> 5.1 "moving it elsewhere is not a fix"; hand-patching capacity on the node -> removed by the clean redeploy in verify; tolerations with the wrong value -> still untolerated.
+- All: runtime fixes (admin API, exec) are undone by the verify restart; postmortem written before evidence is collected; blameful wording trips the checker.
 
 ## Quiz
 1. Gateway (L2): the engine is idle, so rejections are configured behaviour. Questions: whose limit (key, team, model deployment, global)? which scope/window (RPM is a 60 s fixed window; per replica or shared)? is the limit sized for this client class (agent vs chat), and does a concurrency cap (`max_parallel_requests`) exist?

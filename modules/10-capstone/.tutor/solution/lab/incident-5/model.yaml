@@ -1,0 +1,29 @@
+# The model server (reference solution): toleration for the new pool's taint added.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model
+  namespace: serving
+  labels: {app: model, course: aiinfra}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: model}
+  template:
+    metadata:
+      labels: {app: model, course: aiinfra}
+    spec:
+      nodeSelector:
+        gpu-pool: pool-@V@
+      tolerations:
+        - {key: pool-@V@, operator: Equal, value: gpu, effect: NoSchedule}
+      containers:
+        - name: server
+          image: python:3.12-slim
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "http.server", "8000"]
+          ports: [{containerPort: 8000}]
+          readinessProbe: {tcpSocket: {port: 8000}, periodSeconds: 2}
+          resources:
+            requests: {nvidia.com/gpu: 1}
+            limits: {nvidia.com/gpu: 1}

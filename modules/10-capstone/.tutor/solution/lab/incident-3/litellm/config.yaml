@@ -1,0 +1,24 @@
+# Gateway config (reference solution): bound the wait, retry on the peer, eject a failing deployment for a while.
+model_list:
+  - model_name: chat
+    litellm_params: {model: openai/chat, api_base: "http://mock-vllm-a:8000/v1", api_key: none}
+    model_info: {id: chat-a}
+  - model_name: chat
+    litellm_params: {model: openai/chat, api_base: "http://mock-vllm-b:8000/v1", api_key: none}
+    model_info: {id: chat-b}
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  proxy_batch_write_at: 5
+
+litellm_settings:
+  callbacks: ["prometheus"]
+  require_auth_for_metrics_endpoint: false
+
+router_settings:
+  routing_strategy: simple-shuffle
+  timeout: 2             # a request that waits longer than the healthy latency x a few is a failure
+  num_retries: 2         # retry on another deployment
+  allowed_fails: 1       # failures per minute before the deployment is ejected
+  cooldown_time: 30      # ejection is temporary

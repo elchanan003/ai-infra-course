@@ -1,12 +1,10 @@
- Container aiinfra-prometheus-1 Restarting 
- Container aiinfra-prometheus-1 Started 
 SERVICE       STATUS
-grafana       Up 11 seconds (healthy)
-mock-dcgm-a   Up 11 seconds (healthy)
-mock-dcgm-b   Up 10 seconds (healthy)
-mock-vllm-a   Up 2 minutes (healthy)
-mock-vllm-b   Up 2 minutes (healthy)
-prometheus    Up 9 seconds (healthy)
+grafana       Up 7 seconds (healthy)
+mock-dcgm-a   Up 7 seconds (healthy)
+mock-dcgm-b   Up 7 seconds (healthy)
+mock-vllm-a   Up 6 seconds (healthy)
+mock-vllm-b   Up 7 seconds (healthy)
+prometheus    Up 8 seconds (healthy)
 prepare-lab A: ready.  (SIMULATED GPUs: mock-dcgm containers, fake nvidia-smi; Prometheus and promtool are real)
   fake nvidia-smi   bin/smi A -L        bin/smi B --query-gpu=index,uuid,temperature.gpu --format=csv
   DCGM metrics      curl -s localhost:18031/metrics | grep DCGM_FI_DEV_GPU_TEMP     (node A; node B is :18032)
@@ -37,7 +35,7 @@ You can now use your cluster with:
 
 kubectl cluster-info --context kind-aiinfra
 
-Have a nice day! 👋
+Not sure what to do next? 😅  Check out https://kind.sigs.k8s.io/docs/user/quick-start/
 k8s.sh: loading python:3.12-slim into kind
 k8s.sh: ready: aiinfra-control-plane=Ready aiinfra-worker=Ready aiinfra-worker2=Ready 
 prepare-lab B: ready.  (kind: real Kubernetes scheduler; GPUs do NOT exist - you simulate the device plugin in task 9.4)

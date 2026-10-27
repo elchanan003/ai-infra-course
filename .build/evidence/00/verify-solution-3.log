@@ -1,0 +1,16 @@
+[PRE] LiteLLM reads /home/student/ai-infra-course/modules/00-orientation/lab/litellm: ok
+[PRE] llama.cpp engines answer: ok
+[PRE] gateway restart with your config: ok
+[PASS] 0.2.1 content_chunks matches the stream the gateway delivers
+[PASS] 0.2.2 prompt/completion tokens match usage
+[PASS] 0.2.3 finish_reason and usage chunk correct for this request
+[BLOCKED] 0.3.1 the ticket row is missing from the spend log - run ./prepare-lab.sh
+[BLOCKED] 0.3.2 the ticket row is missing from the spend log - run ./prepare-lab.sh
+[BLOCKED] 0.3.3 the ticket row is missing from the spend log - run ./prepare-lab.sh
+[PASS] 0.4.1 all 8 components are in the right layer
+[PASS] 0.4.2 all PORT_ values match docker ps
+[PASS] 0.5.1 alias coder answers 200
+[PASS] 0.5.2 the coder engine served it and the chat engine did not move
+[PASS] 0.5.3 alias chat still served by the chat engine only
+SCORE: 8/11
+exit=1
