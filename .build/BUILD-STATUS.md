@@ -43,3 +43,8 @@ Shared author docs: .build/author-brief.md, .build/finish-prefix.md. Validator: 
 
 ## Final rebalancing (2026-10-27 06:40Z, supersedes above)
 - ALL remaining work owned by c1 (see .build/ASSIGN-c1.md). c1 may create gates after validate PASS, update BUILD-STATUS rows, commit locally. Coordinator launches no agents; answers .build/reports/c1-questions.md; final review only.
+
+## Ownership handover (2026-10-27 06:50 UTC) — c1 is autonomous lead for ALL remaining work
+- Gates created by c1 from evidence: 00, 03, 04, 07, 09 (PASS). Local commit 49e2611.
+- c1 agents running: 05+06 | 01+02 | 08 | 11 validation. Next: 10 (N=1..5) after gate 05; then cheatsheets review, WP5 (validate-all.sh, offline-check.sh, SYLLABUS/CONVENTIONS TBD placeholders, final teardown, commit).
+- Reports: .build/reports/c1-*.md; questions: .build/reports/c1-questions.md
