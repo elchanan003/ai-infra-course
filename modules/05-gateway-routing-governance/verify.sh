@@ -117,7 +117,7 @@ fi
 reset_mocks
 LONG=$(python3 -c "print('lorem ipsum dolor sit amet ' * 1000)")
 a0=$(mhits A); b0=$(mhits B); c=$(req "$MASTER" small "$LONG"); a1=$(mhits A)
-[ "$c" = 200 ] && [ "$a1" -gt "$a0" ] && pass 5.6.1 "long prompt on 'small' answered 200 by the big deployment" || fail 5.6.1 "long prompt on 'small': HTTP $c ($(jq -r '.error.type // .detail // empty' "$TMP/body" 2>/dev/null | head -c 80)), big served $((a1-a0)) - a context-length error is a 400, not an outage: which fallback list handles it?"
+[ "$c" = 200 ] && [ "$a1" -gt "$a0" ] && pass 5.6.1 "long prompt on 'small' answered 200 by the big deployment" || fail 5.6.1 "long prompt on 'small': HTTP $c ($(jq -r '.error.type // .detail // empty' "$TMP/body" 2>/dev/null | head -c 80)), big served $((a1-a0)) - a context-length error is a 400, not an outage: read the fallbacks= the error message prints - is that list reachable from the group the client asked for?"
 a0=$(mhits A); b0=$(mhits B); c=$(req "$MASTER" small "short prompt $N"); a1=$(mhits A); b1=$(mhits B)
 if ! passed 5.6.1; then blocked 5.6.2 "needs 5.6.1 (overflow routing)"
 elif [ "$c" = 200 ] && [ "$b1" -gt "$b0" ] && [ "$a1" = "$a0" ]; then pass 5.6.2 "short prompt stays on 'small'"

@@ -1,16 +1,16 @@
 [PRE] gateway live: ok
 [PRE] mock A and B live: ok
 [PRE] host load low: ok
-[FAIL] 5.1.2 deployment A served 94 / B 106 of 200; the target is 25% to A (about 50, band +-20) - a weighted split needs the right strategy and weights
+[FAIL] 5.1.2 deployment A served 93 / B 107 of 200; the target is 20% to A (about 40, band +-19) - a weighted split needs the right strategy and weights
 [BLOCKED] 5.1.1 needs 5.1.2 (a working weighted split) - an unweighted group answering 200 proves nothing
-[FAIL] 5.1.3 group chat has deployment ids [2fe0f0c40331d5c5aed9e738f419050155c0d8d672a9791f804363f1723a9ee0,700bcb8280412320ddfd91517c1a1d0a31e195183c3123f06fef84947bed65f8], response id '2fe0f0c40331d5c5aed9e738f419050155c0d8d672a9791f804363f1723a9ee0' - set stable model_info.id values chat-a and chat-b
+[FAIL] 5.1.3 group chat has deployment ids [2fe0f0c40331d5c5aed9e738f419050155c0d8d672a9791f804363f1723a9ee0,700bcb8280412320ddfd91517c1a1d0a31e195183c3123f06fef84947bed65f8], response id '700bcb8280412320ddfd91517c1a1d0a31e195183c3123f06fef84947bed65f8' - set stable model_info.id values chat-a and chat-b
 [FAIL] 5.2.1 A failing: 0/10 x 200, B served 0 - group ha must fall back to group ha-backup (fallbacks map group -> group)
 [BLOCKED] 5.2.2 needs 5.2.1 (a fallback that works) - a control without the fallback proves nothing
 [BLOCKED] 5.2.3 needs 5.2.1 (fallback configured)
 [FAIL] 5.3.1 A failing: 20/20 x 200, 7 requests reached A (limit 3) - a failing deployment should leave the group quickly, and retries should hide it from users
 [BLOCKED] 5.3.2 needs 5.3.1 (a cooldown that excluded A) - recovery of a never-excluded deployment proves nothing
 [BLOCKED] 5.3.3 needs 5.3.1 (tuning done)
-[FAIL] 5.4.1 spend of 20 calls = '0', expected 0.006 from lab/PRICES.md - prices must be on every deployment of group chat (model_info) and spend is batch-written
+[FAIL] 5.4.1 spend of 20 calls = '0', expected 0.003 from lab/PRICES.md - prices must be on every deployment of group chat (model_info) and spend is batch-written
 [FAIL] 5.4.2 SPEND_20='TODO' - compute 20 x (prompt tokens x prompt price + completion tokens x completion price) from lab/PRICES.md
 [BLOCKED] 5.4.3 KEY_BUDGET missing (provision.sh, task 5.4)
 [BLOCKED] 5.4.4 needs KEY_BUDGET

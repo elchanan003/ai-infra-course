@@ -40,15 +40,16 @@ if [ "$MODE" = langfuse ]; then
     echo "$tr" > "$RUN/lf-trace.json"
     model=$(echo "$tr" | python3 -c "import json,sys; o=json.load(sys.stdin).get('observations',[]); print(next((x.get('model') for x in o if x.get('model')),''))")
     [ -n "$model" ] && pass 8.7a "trace for the nonce user found in Langfuse (model $model)" || fail 8.7a "trace found but it has no model: is the callback sending generations?"
-    echo "$tr" | python3 - "$n" "$usage" <<'PY' && pass 8.7b "trace input has the nonce prompt and token usage equals the response usage" || fail 8.7b "trace content/usage does not match the request: input must contain the prompt and usage must equal the response usage"
+    cat > "$RUN/lfcheck.py" <<'PY'
 import json,sys
-d=json.load(sys.stdin); n=sys.argv[1]; pt,ct=(sys.argv[2].split()+['',''])[:2]
+d=json.load(open(sys.argv[3])); n=sys.argv[1]; pt,ct=(sys.argv[2].split()+['',''])[:2]
 blob=json.dumps(d.get('input'))+json.dumps([o.get('input') for o in d.get('observations',[])])
 ok=n in blob
-us=[o.get('usage') or {} for o in d.get('observations',[])]
+us=[(o.get('usageDetails') or o.get('usage') or {}) for o in d.get('observations',[])]
 good=any(str(u.get('input',u.get('promptTokens','')))==pt and str(u.get('output',u.get('completionTokens','')))==ct for u in us)
 sys.exit(0 if ok and good else 1)
 PY
+    python3 "$RUN/lfcheck.py" "$n" "$usage" "$RUN/lf-trace.json" && pass 8.7b "trace input has the nonce prompt and token usage equals the response usage" || fail 8.7b "trace content/usage does not match the request: input must contain the prompt and usage must equal the response usage"
   else
     fail 8.7a "no trace for user $user within 60 s: is success_callback set, were the LANGFUSE_* variables used, did LiteLLM restart? (ingestion is asynchronous: web -> S3/Redis -> worker -> ClickHouse)"
     blocked 8.7b "needs 8.7a"

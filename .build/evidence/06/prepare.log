@@ -1,0 +1,2 @@
+prepare-lab: ready. Open WebUI http://127.0.0.1:18080 (admin credentials in lab/env.sample), gateway http://127.0.0.1:18040. Captured request: lab/captured/.
+exit=0

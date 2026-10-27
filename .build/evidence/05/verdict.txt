@@ -1,1 +1,1 @@
-05 FAIL starter=0/20 solution=19/20,19/20,19/20 identical=no clean=yes
+05 PASS starter=0/20 solution=20/20,20/20,20/20 identical=yes clean=yes

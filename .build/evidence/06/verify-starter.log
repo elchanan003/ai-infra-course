@@ -1,0 +1,26 @@
+[PRE] gateway live: ok
+[PRE] Open WebUI healthy: ok
+[PRE] mock A/B live: ok
+[PRE] host load low: ok
+[FAIL] 6.1.1 Open WebUI lists [] - it should list chat (and embed) from the gateway, using a key that may not call agent/coder
+[FAIL] 6.1.2 chat via Open WebUI: HTTP 400, nonce seen under lab-owui: no - the UI must call the gateway with its own key
+[FAIL] 6.1.3 stored upstreams: urls=[] keys=[] - exactly the gateway (as the Open WebUI container sees it) with the dedicated key
+[BLOCKED] 6.1.4 needs 6.1.3 (a connect.sh that configures the connection) - an empty script is trivially idempotent
+[FAIL] 6.2.1 app.py not changed (run.sh exit 2): run.sh: not implemented  - check model name/prefix, edit format and non-interactive flags
+[FAIL] 6.2.2 no spend row for lab-aider on group agent - Aider must use the gateway, the dedicated key and the alias 'agent'
+[FAIL] 6.2.3 run.sh exit 2 after 0s - it must run non-interactively and finish (no prompts, update checks or analytics)
+[BLOCKED] 6.2.4 needs 6.2.1 (a run.sh that works) - a script that never runs also 'fails cleanly'
+[FAIL] 6.3.1 config.yaml needs one model with role chat and one with role autocomplete, each with apiBase http://127.0.0.1:18040/v1 (+ own apiKey)
+[FAIL] 6.3.2 chat replay status=0, rows under lab-continue-chat/chat: 0 - model alias and key of the chat role
+[FAIL] 6.3.3 autocomplete status=0, coder rows 0, backend saw FIM=false - autocomplete must use /completions with prefix+suffix, alias coder and the FIM key
+[FAIL] 6.3.4 FIM key on chat=401, chat key on coder=401 (expected 403/403) - each role's key may use only its own alias
+[FAIL] 6.4.1 SYSTEM_CHARS/TOOLS_COUNT/TOOLS_CHARS/MESSAGES/TOOL_RESULTS do not match the captured file - measure it with jq (TOOLS_CHARS = length of the compact JSON of the tools array)
+[FAIL] 6.4.2 LOGGED_PROMPT_TOKENS=0 vs the spend log - read the row for the request id in captured/README.txt
+[FAIL] 6.4.3 SESSION_25_PROMPT_TOKENS=0 - apply the definitions in lab.md (P from char shares, d per assistant turn, 25 P + d x 25 x 26 / 2)
+[FAIL] 6.4.4 dissect.env still contains the shipped placeholder values (0/TODO)
+[FAIL] 6.5.1 model list [] took 10.13s after restart - something in the stored configuration still makes the listing wait
+[FAIL] 6.5.3 ENABLE_OLLAMA_API=true in the stored config - the stale connection is still active
+[FAIL] 6.5.4 OpenAI connection changed or lost after the restart
+[FAIL] 6.5.2 after the restart the listing is not fast and correct - the fix must live in the application's stored configuration
+SCORE: 0/20
+exit=1

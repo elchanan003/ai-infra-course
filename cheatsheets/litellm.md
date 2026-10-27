@@ -24,7 +24,7 @@ curl -s "$G/spend/logs?start_date=2026-10-26&end_date=2026-10-27" "${H[@]}" | jq
 | 403 `key_model_access_denied` | model not allowed (key AND team both apply) | `/key/info`, `/team/info` |
 | 422 `budget_exceeded` | budget spent (one request may overshoot) | `max_budget`, `budget_duration`, spend |
 | 429 `Limit type: requests/tokens` | RPM/TPM/parallel; headers `retry-after`, `x-ratelimit-*` | fixed 60 s window (m) |
-| 400 ContextWindowExceeded | prompt too long | needs `context_window_fallbacks` |
+| 400 ContextWindowExceeded | prompt too long | set `context_window_fallbacks` (a correctly keyed generic `fallbacks` also catches it on v1.106.4) |
 | 404 from backend | `api_base` without `/v1` / wrong model name | curl backend from gateway network |
 
 ## config.yaml skeleton
@@ -48,7 +48,7 @@ router_settings:
   allowed_fails: 3                        # failures/min before cooldown (documented default)
   cooldown_time: 5                        # seconds (documented default)
   fallbacks: [{"chat": ["chat-small"]}]   # group -> group; 5xx/exhausted retries
-  context_window_fallbacks: [{"small": ["big"]}]   # context-length 400 needs THIS
+  context_window_fallbacks: [{"small": ["big"]}]   # explicit list for context-length 400s
   enable_pre_call_checks: true
   redis_host: valkey                      # shares router state (cooldowns), NOT rate limits (m)
   redis_port: 6379
@@ -77,7 +77,7 @@ curl -s $G/metrics/ | grep -E 'litellm_(deployment_state|proxy_failed|spend|rema
 |---|---|
 | keys 401 after restart | `database_url` set? DB volume intact? salt/master key unchanged? |
 | limit "x2" | replicas without `cache` + `cache_params` |
-| fallback never fires | error class: context length needs `context_window_fallbacks` |
+| fallback never fires | error class: read `fallbacks=` in the error: key must equal the requested group; set `context_window_fallbacks` |
 | spend rows missing, key spend ok | duplicate backend response ids |
 | dead replica still hit | `allowed_fails`/`cooldown_time`, retries hide it, `litellm_deployment_state` |
 | client bypasses limits | engine reachable directly (network policy) |
