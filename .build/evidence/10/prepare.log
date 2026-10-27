@@ -18,17 +18,17 @@ Creating cluster "aiinfra" ...
  ✓ Joining worker nodes 🚜
  • Waiting ≤ 5m0s for control-plane = Ready ⏳  ...
  ✓ Waiting ≤ 5m0s for control-plane = Ready ⏳
- • Ready after 9s 💚
+ • Ready after 11s 💚
 Set kubectl context to "kind-aiinfra"
 You can now use your cluster with:
 
 kubectl cluster-info --context kind-aiinfra
 
-Have a nice day! 👋
+Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/#community 🙂
 k8s.sh: loading python:3.12-slim into kind
 k8s.sh: ready: aiinfra-control-plane=Ready aiinfra-worker=Ready aiinfra-worker2=Ready 
 prepare-lab: waiting for the scheduler to report the Pending pods
-PAGE 5 - 12:45 UTC  "The model pod is Pending after the node-pool change"
+PAGE 5 - 15:10 UTC  "The model pod is Pending after the node-pool change"
   After this morning's node-pool change the model-serving pods are Pending; the new GPU pool was supposed to give us MORE GPUs than before.
   Cluster: kubectl --context kind-aiinfra ...   Namespaces: serving (model), gpu-operator (device plugin + time-slicing config).
   Your files in lab/incident-5/: model.yaml, device-plugin.yaml, time-slicing.yaml. Apply them yourself to experiment (verify applies them too).

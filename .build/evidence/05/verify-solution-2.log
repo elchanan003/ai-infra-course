@@ -2,7 +2,7 @@
 [PRE] mock A and B live: ok
 [PRE] host load low: ok
 [PASS] 5.1.2 deployment A got the canary share of 200 sequential requests (within the binomial band)
-~ A served 42 of 200 (target 40, band +-19)
+~ A served 43 of 200 (target 40, band +-19)
 [PASS] 5.1.1 200 requests on 'chat' all returned 200 on a weighted split
 [PASS] 5.1.3 deployments carry the ids chat-a / chat-b and responses report one of them
 [PASS] 5.2.1 A failing: 10/10 requests on 'ha' answered 200 and B served them
@@ -14,17 +14,17 @@
 ~ recovery took 25 s
 [PASS] 5.3.3 group ha still healthy (config intact)
 [PASS] 5.4.1 spend of 20 calls equals the hand-computed value
-~ spend 0.003 expected 0.003
+~ spend 0.0034 expected 0.0034000000000000002
 [PASS] 5.4.2 SPEND_20 matches the hand computation
 [PASS] 5.4.3 budget key: allowed calls up to the budget, then 422 budget_exceeded
-~ 7 x 200
+~ 5 x 200
 [PASS] 5.4.4 control key without budget keeps returning 200
 [PASS] 5.5.1 all chat requests returned 200 while the agent looped
 [PASS] 5.5.2 agent backend concurrency stayed within the cap and the excess got 429
-~ peak 4 (cap 3+1), 429s 324
+~ peak 7 (cap 6+1), 429s 134
 [PASS] 5.5.3 answers and key limits match the capacity numbers
 [PASS] 5.5.4 worst chat latency within 1.5x idle + 0.3 s
-~ worst 2.977s limit 3.055s idle 1.837s
+~ worst 2.981s limit 3.057s idle 1.838s
 [PASS] 5.6.1 long prompt on 'small' answered 200 by the big deployment
 [PASS] 5.6.2 short prompt stays on 'small'
 [PASS] 5.6.3 generic fallback (ha -> ha-backup) still works

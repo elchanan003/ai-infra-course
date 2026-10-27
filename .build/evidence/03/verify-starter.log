@@ -11,7 +11,7 @@
 [FAIL] 3.5a KV_PEAK is not within 0.05 of what the scripted burst produces (peak of vllm:kv_cache_usage_perc, a 0..1 fraction)
 [FAIL] 3.5b PREEMPTIONS differs from the counter delta of the burst (vllm:num_preemptions_total before/after)
 [FAIL] 3.5c LIMITER is wrong for this config/variant: compare running vs max_num_seqs, KV usage and preemptions at the peak (theory sections 6-8)
-[FAIL] 3.6a throughput 548.3 tok/s is below the floor of 1450: the batch is too small to keep the GPU busy (theory section 9)
+[FAIL] 3.6a throughput 549.6 tok/s is below the floor of 1450: the batch is too small to keep the GPU busy (theory section 9)
 [BLOCKED] 3.6b needs 3.6a
 [BLOCKED] 3.6c needs 3.6a
 [BLOCKED] 3.6d needs 3.6a

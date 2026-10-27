@@ -1,2 +1,2 @@
-apply-solution: lab/ replaced (backup: lab.bak-20261027-020511), gateway restarted with the solution config
+apply-solution: lab/ replaced (backup: lab.bak-20261027-132307), gateway restarted with the solution config
 exit=0

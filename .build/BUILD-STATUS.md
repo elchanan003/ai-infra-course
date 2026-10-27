@@ -52,3 +52,8 @@ Shared author docs: .build/author-brief.md, .build/finish-prefix.md. Validator: 
 - 10:48Z coordinator agents own 01, 02, 10 until handback to c1 (~11:30). WP5 after.
 - 11:02Z 01, 02 PASS (gates, committed). Only 10 left (coordinator agent), then WP5.
 - 11:50Z HANDBACK: c1 owns 10 + WP5. 10: N=1,2 PASS (evidence/10-1, 10-2); N=3 FAIL (plant_3); N=4,5 solutions rewritten, not re-run. See ASSIGN-c1.md.
+
+## FINAL (c1, 2026-10-27 15:30 UTC): all modules validated, WP5 done
+- Full `.build/validate-all.sh` (00-09, 10:1-5, 11): 16/16 PASS, see .build/evidence/SUMMARY.md. All gates present (00-11, WP2, WP3).
+- offline-check.sh: 36 OK, 0 FAIL (.build/evidence/offline-check.log). Teardown: no course containers/networks, no kind cluster. Local commits only (no push).
+- Known limits: 04 starter denominator 29 vs solution 31 (cosmetic); 10:3 sick-node-b path not seen in validated runs; planted faults for 10:3-5 not run separately; 01/02 timing-ish checks use counters/ratios; SGLang/TGI/Triton names in 11 theory unverified (caveat in text); not tested: clean-machine setup.sh from empty cache (destructive to cached images/models).

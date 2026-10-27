@@ -1,3 +1,4 @@
+stack.sh: WARN Tailscale IP 100.127.87.65 not present; binding UIs to 127.0.0.1 only
 prepare-lab: ready (profiles gw llm).
   Gateway  http://127.0.0.1:18040   (lab/litellm/config.yaml; reload: lab/bin/reload-gateway.sh)
   Engines  chat :18011  coder :18012  embed :18013

@@ -20,7 +20,7 @@
 [PASS] 6.4.3 SESSION_25_PROMPT_TOKENS within 5% of the reference computation
 [PASS] 6.4.4 no template placeholder values left
 [PASS] 6.5.1 model list with chat is fast after restart (persisted fix)
-~ listing took 0.07s
+~ listing took 0.06s
 [PASS] 6.5.3 Ollama API disabled in the stored configuration
 [PASS] 6.5.4 gateway connection with lab-owui still the only upstream
 [PASS] 6.5.2 fix survived a restart of Open WebUI

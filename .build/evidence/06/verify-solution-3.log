@@ -9,7 +9,7 @@
 [PASS] 6.2.1 Aider edited app.py through the gateway
 [PASS] 6.2.2 gateway logged Aider's request under key lab-aider, model group agent
 [PASS] 6.2.3 run.sh exits 0 within 120 s without interaction
-~ aider took 4s
+~ aider took 5s
 [PASS] 6.2.4 bogus key: non-zero exit and file unchanged
 [PASS] 6.3.1 config has a chat model and an autocomplete model, both on the gateway
 [PASS] 6.3.2 chat request: 200, logged under lab-continue-chat on group chat
@@ -20,7 +20,7 @@
 [PASS] 6.4.3 SESSION_25_PROMPT_TOKENS within 5% of the reference computation
 [PASS] 6.4.4 no template placeholder values left
 [PASS] 6.5.1 model list with chat is fast after restart (persisted fix)
-~ listing took 0.06s
+~ listing took 0.07s
 [PASS] 6.5.3 Ollama API disabled in the stored configuration
 [PASS] 6.5.4 gateway connection with lab-owui still the only upstream
 [PASS] 6.5.2 fix survived a restart of Open WebUI

@@ -18,7 +18,7 @@
 [FAIL] 6.4.2 LOGGED_PROMPT_TOKENS=0 vs the spend log - read the row for the request id in captured/README.txt
 [FAIL] 6.4.3 SESSION_25_PROMPT_TOKENS=0 - apply the definitions in lab.md (P from char shares, d per assistant turn, 25 P + d x 25 x 26 / 2)
 [FAIL] 6.4.4 dissect.env still contains the shipped placeholder values (0/TODO)
-[FAIL] 6.5.1 model list [] took 10.23s after restart - something in the stored configuration still makes the listing wait
+[FAIL] 6.5.1 model list [] took 10.79s after restart - something in the stored configuration still makes the listing wait
 [FAIL] 6.5.3 ENABLE_OLLAMA_API=true in the stored config - the stale connection is still active
 [FAIL] 6.5.4 OpenAI connection changed or lost after the restart
 [FAIL] 6.5.2 after the restart the listing is not fast and correct - the fix must live in the application's stored configuration
