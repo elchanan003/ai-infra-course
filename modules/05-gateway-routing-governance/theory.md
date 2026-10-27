@@ -106,7 +106,7 @@ router_settings:
 ```
 
 - Fallbacks go **group → group**, not deployment → deployment. "A fails so use B" within one group is the *balancer + retries* job; a fallback is "the whole group is unavailable, degrade to something else" (smaller model, other region, SaaS).
-- **A context-length error is a 400, not a 5xx.** The generic `fallbacks` list does not fire on it (measured in the lab task 5.6 — the planted trap): the request fails with `ContextWindowExceededError` unless `context_window_fallbacks` points at a group with a larger window. Likewise `content_policy_fallbacks` for policy blocks. This is the single most common "my fallback never fires" report.
+- **A context-length error is a 400, not a 5xx.** Do not assume the generic `fallbacks` list is the one that handles it: on v1.106.4 we measured that a correctly keyed generic entry does also catch it, but only if the key is exactly the requested group name (lab task 5.6 plants a `small-chat` key for group `small`; the 400 message prints the `fallbacks=` it saw). `context_window_fallbacks` is the explicit list for this error and should be set, pointing at a group with a larger window. Likewise `content_policy_fallbacks` for policy blocks. This is the single most common "my fallback never fires" report.
 - A fallback is a **product decision**: answer quality changes (0.5B instead of 70B), cost changes, privacy may change (a SaaS fallback sends prompts off-prem — often forbidden in air-gapped shops; say so in the design doc). Silent degradation hides outages: expose `x-litellm-attempted-fallbacks` and count fallbacks per hour as a metric.
 - Fallback targets must have headroom: when A's traffic lands on B (or small-model) you have *created* the load B must absorb. Many "fallback worked, then everything died" incidents are capacity, not routing.
 - Streaming: once the first token reached the client the HTTP status is already 200; retries/fallbacks only cover failures **before** the first byte (connection errors, 5xx at start, TTFT timeouts). A mid-stream engine crash surfaces as a truncated stream; the client must handle it. Do not design around mid-stream failover.
@@ -203,7 +203,7 @@ Layering: readiness keeps unloaded replicas out of the endpoint list (the gatewa
 3. **Different failure domain.** A fallback to a group on the same GPUs, same node or same upstream fails together with the primary.
 4. **Never from critical to best-effort,** and never from agent pools into chat pools or the reverse (a fallback is also a route for overload).
 5. **Headroom check.** Let group S (source) have concurrency L_S, target group T have its own steady concurrency L_T, capacity C_T (sum of `max_num_seqs` or KV-bound limit) and a safe utilisation rho (about 0.7). When a fraction q of S falls back to T: `L_T + q x L_S x (s_T / s_S)` must stay below `rho x C_T`, where s is mean service time (a smaller model finishes faster, so the same request needs fewer slot-seconds on T). Example: chat L_S=40, small group C_T=64 with its own L_T=10, s_S/s_T = 3: full outage q=1 gives 10 + 13 = 23 < 44.8, fine; with s_S/s_T = 1 it would be 50 > 44.8, so the target would saturate in turn.
-6. **Typed fallbacks.** `fallbacks` for availability, `context_window_fallbacks` for length (needs a group with a larger window and the capacity to hold its KV), `content_policy_fallbacks` for policy. Using only the first leaves long-prompt traffic unprotected (lab task 5.6).
+6. **Typed fallbacks.** `fallbacks` for availability, `context_window_fallbacks` for length (needs a group with a larger window and the capacity to hold its KV), `content_policy_fallbacks` for policy. Relying on only the first is fragile for long-prompt traffic, and a wrong group key silently disables any list (lab task 5.6).
 7. **Observable and bounded.** Count fallbacks, alert on a non-zero rate lasting minutes, and put a spend cap on any metered fallback target.
 8. **Tested.** Kill the primary in a canary and watch the target's queue, not just the 200s.
 
@@ -413,7 +413,7 @@ Correlate by response headers when debugging a single request: `x-litellm-model-
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Fallback never fires on very long prompts | context errors are 400s, need `context_window_fallbacks` | add it; enable `enable_pre_call_checks` |
+| Fallback never fires on very long prompts | list keyed by a name that is not the requested group, or no context list; context errors are 400s | read `fallbacks=` in the error message; fix the key, add `context_window_fallbacks`; enable `enable_pre_call_checks` |
 | Failing replica keeps getting traffic | no cooldown/`allowed_fails` too high, errors are 5xx counted per minute, retries mask it | check `litellm_deployment_state`; tune |
 | Failing replica gets *all* retries | retries random, may hit same deployment | more deployments; `retry_policy`; cooldown |
 | Spend is 0 for local models | no `model_info` prices | set costs per token |
@@ -442,7 +442,7 @@ Correlate by response headers when debugging a single request: `x-litellm-model-
 
 - Same `model_name` = one group; the router balances inside a group and **fallbacks cross groups**. Set stable `model_info.id`s.
 - `simple-shuffle` (optionally weighted) is the sane default; reactive strategies need shared state and can oscillate; inference-aware routing (KV/prefix) belongs to a smarter layer.
-- Retries, fallbacks and cooldowns are different tools; a context-length 400 needs `context_window_fallbacks`, not `fallbacks`.
+- Retries, fallbacks and cooldowns are different tools; a context-length 400 needs a correctly keyed fallback list - set `context_window_fallbacks` explicitly.
 - Cooldown = passive health check: `allowed_fails` per minute, `cooldown_time`; immediate for some error classes; shared across replicas only with router Redis.
 - Spend = usage × your internal price; no price → no spend → no budget. Budget exceeded is HTTP 422 `budget_exceeded`; test it sequentially; RPM resets are 60 s fixed windows.
 - Agents and chat need different identities, limits (`max_parallel_requests`!), budgets and, ideally, pools. Concurrency = rate × latency.

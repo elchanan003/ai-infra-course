@@ -13,17 +13,14 @@
 [FAIL] 1.7.1 case 1/6: weights_gib = 8.03 for llama-3.1-8b tp=2 differs from the correct value (units, KV head count, tensor-parallel split are independent suspects)
 [BLOCKED] 1.7.2 needs 1.7.1 (a CLI that prints wrong numbers is not a working contract)
 [FAIL] 1.3.1 not all 4 concurrent ~1800-token prompts were served in full (statuses/prompt_tokens: [('400', 0), ('400', 0), ('400', 0), ('400', 0)]; per-slot n_ctx reported by /slots: [512, 512, 512, 512]) - how is the context divided between slots? (theory 3.1)
-[FAIL] 1.3.2 bench.py output is missing or differs by more than 1.5x from the counter-based throughput (verify measured 21.644472871684542 tok/s at PARALLEL=1, 27.612580827364855 at 4; yours x, x); stderr: Traceback (most recent call last):   File "/home/student/ai-infra-course/modules/01-serving-internals/lab/bench.py", line 50, in <module>     main()   File "/ho
-[FAIL] 1.3.3 batching.json: ratio must equal parallel4_tps/parallel1_tps, lie within 0.6-1.6x of the measured ratio (1.28) and why must name what makes concurrent decoding cheaper
+[FAIL] 1.3.2 bench.py output is missing or differs by more than 1.5x from the counter-based throughput (verify measured 19.95492269901217 tok/s at PARALLEL=1, 28.784731781089718 at 4; yours x, x); stderr: Traceback (most recent call last):   File "/home/student/ai-infra-course/modules/01-serving-internals/lab/bench.py", line 50, in <module>     main()   File "/ho
+[FAIL] 1.3.3 batching.json: ratio must equal parallel4_tps/parallel1_tps, lie within 0.6-1.6x of the measured ratio (1.44) and why must name what makes concurrent decoding cheaper
 [FAIL] 1.4.1 second request reused only 19 of ~1143 shared tokens: what comes first in your prompt differs between requests (theory 4: strict prefix)
 [FAIL] 1.4.2 only 22 leading characters are identical between two calls (system+document are 7444): something volatile precedes them
 [FAIL] 1.4.3 cache.json: stable_prefix_tokens must match /tokenize of system + blank line + document (within 3%), cached_tokens_before <= 10% and cached_tokens_after >= 80% of it
 [FAIL] 1.5.1 file sizes are not the exact byte counts of the two GGUF files in lab/variant/models.txt (stat, not ls -h)
-Traceback (most recent call last):
-  File "/home/student/ai-infra-course/modules/01-serving-internals/.lib/checks.py", line 259, in <module>
-    globals()["cmd_" + sys.argv[1]](*sys.argv[2:])
-  File "/home/student/ai-infra-course/modules/01-serving-internals/.lib/checks.py", line 248, in cmd_quant
-    ok = str(a.get("ftype_q4", "")).strip().lower() == t["q4"]["ftype"].lower() and str(a.get("ftype_q8", "")).strip().lower() == t["q8"]["ftype"].lower() and lc(a.get("tensor_types_q4")) == t["q4"]["types"] and lc(a.get("tensor_types_q8")) == t["q8"]["types"]
-AttributeError: 'NoneType' object has no attribute 'lower'
-SCORE: 0/2
+[FAIL] 1.5.2 ftype / tensor type sets differ from what llama-server prints when it loads these files (read the 'llama_model_loader' lines of the load log)
+[FAIL] 1.5.3 prompt_eval_ratio_q8_over_q4 must be above 1.5 and within a factor 1.6 of verify's own measurement (measure prompt processing with a long prompt and cache_prompt=false, not generation)
+[FAIL] 1.5.4 why_q8_prompt_faster is wrong or bpw_q4/bpw_q8 do not match the load logs of your variant's files (the enum only counts together with the evidence)
+SCORE: 0/23
 exit=1

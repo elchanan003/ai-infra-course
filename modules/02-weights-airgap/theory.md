@@ -386,6 +386,41 @@ TensorRT engine plans are not portable between GPU architectures or TensorRT ver
 | lab ports | mirror 18071, S3 18070, registry 18050, tripwire 18072 (hits), module 02 containers 18125-18129 |
 | S3 identities in the lab | `rw` (Admin, Read, Write, List, Tagging), `ro` (Read, List) |
 
+## 26. Incident walk-throughs
+
+### 26.1 "The model loads on the laptop, not in the cluster"
+1. Is the whole set present? A serving directory needs `config.json`, tokenizer files, `generation_config.json` (optional but changes sampling), the safetensors index and every shard it names. Compare the index `weight_map` values with the files on disk: a missing shard fails late (at first access of that tensor) in some loaders.
+2. Do the hashes match the manifest? `sha256sum -c` against the manifest produced on the connected side. A truncated copy usually shows as a header whose declared offsets exceed the file size (safetensors loaders check this).
+3. Is the cache layout what the client expects? With `HF_HUB_OFFLINE=1`, `from_pretrained("org/name")` resolves through `HF_HUB_CACHE/models--org--name/refs/<revision>` then `snapshots/<commit>`; a directory copied without the `refs` file fails with a "not found in cache" error even though the blobs are there. Loading from a plain path (`/models/name`) avoids that class of problem.
+
+### 26.2 "Offline mode is on and the tripwire still fires"
+The usual suspects, each of which the lab's control run teaches you to prove rather than assume: a telemetry or update-check call (`HF_HUB_DISABLE_TELEMETRY`, a tokenizer that wants `tiktoken` files downloaded on first use), `trust_remote_code` pulling code from the Hub, a dataset or tokenizer referenced by repo id inside `config.json`, a DNS lookup that happens before the library decides to stay local, and a health-check sidecar. The DNS query log is the evidence because it shows the hostname even when the connection is TLS.
+
+### 26.3 "A third-party checkpoint scanned clean"
+Walk the three layers: format (was there any pickle at all? convert or reject), provenance (who published it, is the commit pinned, does the hash match the publisher's), and containment (load it only in a sandbox with no network and no credentials, `--cap-drop ALL`, read-only root, separate user). A clean scan only means no known-bad pattern was seen; scanners have been bypassed with unusual opcodes, nested archives and stdlib callables nobody put on the denylist.
+
+### 26.4 "The registry has the image but the node pulls the wrong one"
+Tags move. The deployment says `aiinfra/llama:prod`, someone re-pushed `prod`, and a node that pulled later runs a different build. Pull by digest (`repo@sha256:...`), take the digest from the registry's `Docker-Content-Digest` header (for a multi-arch tag, that is the index digest), and record it in the deployment manifest. Local `docker images --digests` can show a different digest than the registry for the same content under the containerd image store, so never use it as the source of truth.
+
+## 27. Intake ticket template for a new model
+| Field | Why |
+|---|---|
+| Source repo and pinned commit | reproducibility and rollback |
+| License and gated status | legal review; gated repos need an approved token on the connected side only |
+| Formats present (safetensors / pickle / GGUF) | pickle means reject or convert in a sandbox |
+| Sha256 of every file, stored out of band | integrity at each hop |
+| Scan result and scanner version | evidence, not proof |
+| Size and expected cold-start time | capacity of the weights store and node cache |
+| Chat template and generation config reviewed | behaviour changes without weight changes |
+| Target engine and version tested | loader compatibility (e.g. a new architecture needs a newer engine) |
+| Approver and date | audit trail |
+
+## 28. Review questions an on-call engineer should be able to answer
+- Where are the weights for production right now, by digest or commit, and who can overwrite them?
+- If the connected side is unreachable for a week, can we still scale out, and from where do new nodes get weights?
+- What proves that serving pods cannot reach the internet, and when was that last tested?
+- If a model is found malicious tomorrow, how do we find every place it was copied (S3 prefix, node caches, registry artifacts)?
+
 ## Key takeaways
 1. A model is a set of files: weights **and** config/tokenizer; verify completeness and integrity of the whole set, pinned to a commit.
 2. safetensors = 8-byte length + JSON header + raw bytes: no code execution; pickle = a program: loading it is running it. Policy: safetensors only.

@@ -34,7 +34,9 @@ if [ -z "$tok" ]; then for i in 6.1.1 6.1.2 6.1.3; do blocked $i "cannot sign in
   [ "$urls" = '["http://litellm:4000/v1"]' ] && [ "$keys" = "[\"$LAB_KEY_OWUI\"]" ] && pass 6.1.3 "Open WebUI's only upstream is the gateway with key lab-owui" \
     || fail 6.1.3 "stored upstreams: urls=$urls keys=$(echo "$keys" | sed 's/sk-[A-Za-z0-9-]*/sk-.../g') - exactly the gateway (as the Open WebUI container sees it) with the dedicated key"
 fi
-[ "$rc1" = 0 ] && [ "$rc2" = 0 ] && pass 6.1.4 "connect.sh idempotent (exit 0 twice)" || fail 6.1.4 "connect.sh exit codes $rc1/$rc2: $(tail -2 "$TMP/conn.log" | tr '\n' ' ')"
+if [ -z "$tok" ] || ! passed 6.1.3; then blocked 6.1.4 "needs 6.1.3 (a connect.sh that configures the connection) - an empty script is trivially idempotent"
+elif [ "$rc1" = 0 ] && [ "$rc2" = 0 ]; then pass 6.1.4 "connect.sh idempotent (exit 0 twice, same end state)"
+else fail 6.1.4 "connect.sh exit codes $rc1/$rc2: $(tail -2 "$TMP/conn.log" | tr '\n' ' ')"; fi
 
 # ---------------------------------------------------------------- 6.2 Aider
 R="$LAB/aider/repo"; git -C "$R" checkout -q -- . 2>/dev/null; git -C "$R" clean -fdq 2>/dev/null
@@ -44,10 +46,11 @@ grep -q "BANNER = \"V${N}\"" "$R/app.py" && pass 6.2.1 "Aider edited app.py thro
 litellm_flush_wait "$LAB_KEY_AIDER" $((before+1)) 40
 after=$(spend_rows "$LAB_KEY_AIDER" agent)
 [ "${after:-0}" -gt "${before:-0}" ] && pass 6.2.2 "gateway logged Aider's request under key lab-aider, model group agent" || fail 6.2.2 "no spend row for lab-aider on group agent - Aider must use the gateway, the dedicated key and the alias 'agent'"
-[ "$arc" = 0 ] && [ "$AT" -le 120 ] && pass 6.2.3 "run.sh exits 0 in ${AT}s without interaction" || fail 6.2.3 "run.sh exit $arc after ${AT}s - it must run non-interactively and finish (no prompts, update checks or analytics)"
+[ "$arc" = 0 ] && [ "$AT" -le 120 ] && { pass 6.2.3 "run.sh exits 0 within 120 s without interaction"; echo "~ aider took ${AT}s"; } || fail 6.2.3 "run.sh exit $arc after ${AT}s - it must run non-interactively and finish (no prompts, update checks or analytics)"
 git -C "$R" checkout -q -- . 2>/dev/null
 ( cd "$LAB/aider" && LAB_KEY_OVERRIDE="sk-bogus-$N" timeout 120 bash ./run.sh "set the banner to W${N}" ) >"$TMP/aider2.log" 2>&1; brc=$?
-if [ "$brc" != 0 ] && ! grep -q "W${N}" "$R/app.py"; then pass 6.2.4 "bogus key: non-zero exit and file unchanged"; else fail 6.2.4 "bogus key run exit $brc, file changed: $(grep -c "W$N" "$R/app.py") - keep the LAB_KEY_OVERRIDE line and let Aider fail on auth errors"; fi
+if ! passed 6.2.1; then blocked 6.2.4 "needs 6.2.1 (a run.sh that works) - a script that never runs also 'fails cleanly'"
+elif [ "$brc" != 0 ] && ! grep -q "W${N}" "$R/app.py"; then pass 6.2.4 "bogus key: non-zero exit and file unchanged"; else fail 6.2.4 "bogus key run exit $brc, file changed: $(grep -c "W$N" "$R/app.py") - keep the LAB_KEY_OVERRIDE line and let Aider fail on auth errors"; fi
 git -C "$R" checkout -q -- . 2>/dev/null
 
 # ---------------------------------------------------------------- 6.3 Continue
@@ -106,7 +109,7 @@ bad=0; for k in SYSTEM_CHARS TOOLS_COUNT TOOLS_CHARS MESSAGES TOOL_RESULTS LOGGE
 wait_http "$OWUI/health" 180; tok=$(owui_token)
 if [ -z "$tok" ]; then for i in 6.5.1 6.5.2 6.5.3 6.5.4; do blocked $i "Open WebUI did not come back"; done; else
   t0=$(date +%s.%N); models=$(curl -sS --max-time 60 "$OWUI/api/models" -H "Authorization: Bearer $tok" | jq -r '[.data[]?.id]|join(",")'); T2=$(python3 -c "print(round($(date +%s.%N)-$t0,2))")
-  echo "$models" | grep -qw chat && python3 -c "import sys;sys.exit(0 if $T2<5 else 1)" && pass 6.5.1 "model list with chat in ${T2}s after restart (persisted fix)" || fail 6.5.1 "model list [$models] took ${T2}s after restart - something in the stored configuration still makes the listing wait"
+  echo "$models" | grep -qw chat && python3 -c "import sys;sys.exit(0 if $T2<5 else 1)" && { pass 6.5.1 "model list with chat is fast after restart (persisted fix)"; echo "~ listing took ${T2}s"; } || fail 6.5.1 "model list [$models] took ${T2}s after restart - something in the stored configuration still makes the listing wait"
   # first listing before restart was ${T1:-?}s
   oll=$(curl -sS --max-time 20 "$OWUI/ollama/config" -H "Authorization: Bearer $tok" | jq -r '.ENABLE_OLLAMA_API')
   [ "$oll" = false ] && pass 6.5.3 "Ollama API disabled in the stored configuration" || fail 6.5.3 "ENABLE_OLLAMA_API=$oll in the stored config - the stale connection is still active"

@@ -3,15 +3,15 @@
 [PRE] tripwire up: ok
 [PRE] air-gap network exists: ok
 [PASS] 2.1.1 serving set complete, hashes match the source, model.sha256 verifies
-[FAIL] 2.1.2 files that serving does not need were downloaded (.gitkeep) - use explicit --include patterns
+[PASS] 2.1.2 no decoy or unneeded files downloaded
 [PASS] 2.1.3 header.json equals the values computed from the safetensors headers
 [PASS] 2.2.1 both hostile checkpoints are flagged (exit 1)
 [PASS] 2.2.2 no false positives on the benign checkpoints
 [PASS] 2.2.3 canary file does not exist: the scanner never executed the pickles
 [PASS] 2.2.4 a truncated pickle is reported dangerous (exit 1)
-[BLOCKED] 2.3.1 needs 2.1.1 (nothing to sync)
-[BLOCKED] 2.3.2 needs 2.1.1 (nothing to sync)
-[BLOCKED] 2.3.3 needs 2.1.1 (nothing to sync)
+[PASS] 2.3.1 all objects present under the prefix and readable with the serving credentials; hashes match
+[PASS] 2.3.2 PUT denied with 403 AccessDenied
+[PASS] 2.3.3 DELETE denied with 403 AccessDenied
 [PASS] 2.4.1 completion answered from inside the air-gapped network
 [PASS] 2.4.2 air-gapped network only, tripwire as DNS, local model, zero tripwire hits
 [PRE] control run (no offline settings) trips the wire: ok
@@ -19,8 +19,8 @@
 [PASS] 2.5.1 IMAGE_DIGEST is the registry's manifest digest of aiinfra/llama:server-b11889
 [PASS] 2.5.2 a running course container was created from localhost:18050/aiinfra/llama@<digest>
 [PASS] 2.5.3 oras pull of the recorded artifact yields your variant's GGUF (sha256 74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db), media types as specified
-[PASS] 2.6.1 incident.json names the missing and the corrupt file with the right hashes
-[PASS] 2.6.2 every file matches SHA256SUMS and no good file was re-downloaded
+[FAIL] 2.6.1 incident.json: the missing list or the corrupt entry (file, expected sha from SHA256SUMS, actual sha of the damaged file as it arrived) is wrong - compare the bundle with its manifest and check completeness, not only hashes
+[FAIL] 2.6.2 bundle still fails its manifest: sha256sum: SHA256SUMS: No such file or directory
 [PASS] 2.6.3 the repaired bundle loads: tokenizer present, index and shards consistent, headers parse, hashes match
-SCORE: 11/14
+SCORE: 17/19
 exit=1

@@ -109,10 +109,10 @@ Tips: after each config edit restart the gateway and send a few requests; read r
 
 **Goal:** make long prompts succeed through a bigger-window group.
 
-Story: group `small` (context 2 000 tokens) serves cheap chat; a `fallbacks: [{small: [big]}]` entry exists in the starter config ("so overflow goes to the big model") but a 6 000-token prompt returns an error to the user. The colleague who wrote it says "fallbacks are configured". Do not just delete the small model.
+Story: group `small` (context 2 000 tokens) serves cheap chat; the starter config already has an entry meant to send overflow to `big` ("so overflow goes to the big model"), but a 6 000-token prompt returns an error to the user. The colleague who wrote it says "fallbacks are configured". Do not just delete the small model.
 
-1. Reproduce: send a long prompt to `small`. Which HTTP status and error type do you get? Compare with the mock-induced 500 case from task 5.2 — which of the two triggers the existing fallback?
-2. Fix the router config so the long prompt is answered by `big` while short prompts still go to `small`.
+1. Reproduce: send a long prompt to `small`. Which HTTP status and error type do you get? Read the error message the gateway returns - it prints the fallback list it saw. Compare with the mock-induced 500 case from task 5.2.
+2. Find why the existing entry never fires and fix the router config so the long prompt is answered by `big` while short prompts still go to `small`.
 
 **Success criteria**
 - `5.6.1` A long prompt on `small` returns 200 and is served by `big` (backend counters / model id).

@@ -108,8 +108,14 @@ python3 "$H/gentests.py" "$RUN" ../.. || { echo "gentests failed"; exit 1; }
 runtest() { local f="$1"; PROMTOOL_MOUNT="$MOD" promtool_test "$RUN/$f" > "$RUN/$f.out" 2>&1; }
 if runtest rec.test.yml; then pass 8.2a "recording rules produce the expected p95 TTFT/ITL and token rate on synthetic series"
 else fail 8.2a "recording-rule test failed ($(grep -m1 -iE 'error|fail|no such file|expected' "$RUN/rec.test.yml.out" | cut -c1-150)): combine replicas first (sum by (le,...) of rate), quantile last; names must match the lab spec"; fi
-r1=$(pmax 'model:vllm_ttft_seconds:p95_5m'); r2=$(pmax 'histogram_quantile(0.95, sum by (le, model_name) (rate(vllm:time_to_first_token_seconds_bucket[5m])))')
-if [ -n "$r1" ] && [ -n "$r2" ] && python3 -c "import sys; a,b=float('$r1'),float('$r2'); sys.exit(0 if abs(a-b)<=0.1*max(b,1e-9) else 1)"; then pass 8.2b "live recorded p95 TTFT ($r1) matches the direct quantile ($r2)"
+# recorded sample and direct query are evaluated at different instants: compare both from the same stable window, up to 4 tries
+okb=0
+for _ in 1 2 3 4; do
+  r1=$(pmax 'model:vllm_ttft_seconds:p95_5m'); r2=$(pmax 'histogram_quantile(0.95, sum by (le, model_name) (rate(vllm:time_to_first_token_seconds_bucket[5m])))')
+  if [ -n "$r1" ] && [ -n "$r2" ] && python3 -c "import sys; a,b=float('$r1'),float('$r2'); sys.exit(0 if abs(a-b)<=0.2*max(b,1e-9) else 1)"; then okb=1; break; fi
+  sleep 6
+done
+if [ $okb = 1 ]; then pass 8.2b "live recorded p95 TTFT matches the direct quantile (same window)"
 else fail 8.2b "live recorded series ${r1:-missing} vs direct quantile ${r2:-missing}: is the rule loaded (Prometheus /rules) and evaluating without errors?"; fi
 
 # ---- 8.3 dashboard
@@ -155,7 +161,7 @@ print(json.dumps(al[0]['annotations']) if al else '')" 2>/dev/null)
   [ -n "$a" ] && { fired=1; ann="$a"; break; }
   sleep 4
 done
-if [ $fired = 1 ]; then pass 8.4d "KVCacheNearFull fired live under kv_pressure + load after $(( $(date +%s) - t0 )) s"
+if [ $fired = 1 ]; then pass 8.4d "KVCacheNearFull fired live under kv_pressure + load"
 else fail 8.4d "KVCacheNearFull did not fire within 240 s of kv_pressure + queueing load: check the rule is loaded, the expression sees vllm:kv_cache_usage_perc > 0.9 and waiting/preemptions, and for: is 2m"; fi
 if [ $fired = 1 ]; then
   echo "$ann" | python3 -c "

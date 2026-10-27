@@ -1,1 +1,1 @@
-05 FAIL starter=7/20 solution=17/20,18/20,18/20 identical=no clean=yes
+05 FAIL starter=0/20 solution=19/20,19/20,19/20 identical=no clean=yes

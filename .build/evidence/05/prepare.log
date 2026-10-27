@@ -1,3 +1,2 @@
-/home/student/ai-infra-course/modules/05-gateway-routing-governance/prepare-lab.sh: line 39: NORMAL_CPM: unbound variable
 prepare-lab: ready. Gateway http://127.0.0.1:18040, mock A :18021, mock B :18022. Read lab/PRICES.md and lab/CAPACITY.md.
 exit=0

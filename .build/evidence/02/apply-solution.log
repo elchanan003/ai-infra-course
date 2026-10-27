@@ -1,8 +1,5 @@
 [90mHint: The `hf-cli` skill is not installed. Run `hf skills add -g` to teach your AI agents how to use the `hf` CLI.[0m
-Fetching 11 files:   0%|          | 0/11 [00:00<?, ?it/s]Fetching 11 files:  36%|███▋      | 4/11 [00:00<00:00, 37.10it/s]Fetching 11 files: 100%|██████████| 11/11 [00:00<00:00, 88.42it/s]
-Unable to find image 'localhost:18050/aiinfra/llama@sha256:5dc62fc8395afadd0c97e7f75c84e833eb3cd4bd9b77b6919c292cb6dd450c89' locally
-localhost:18050/aiinfra/llama@sha256:5dc62fc8395afadd0c97e7f75c84e833eb3cd4bd9b77b6919c292cb6dd450c89: Pulling from aiinfra/llama
-Digest: sha256:5dc62fc8395afadd0c97e7f75c84e833eb3cd4bd9b77b6919c292cb6dd450c89
-Status: Downloaded newer image for localhost:18050/aiinfra/llama@sha256:5dc62fc8395afadd0c97e7f75c84e833eb3cd4bd9b77b6919c292cb6dd450c89
-apply-solution: lab/ replaced (backup: lab.bak-20261027-030858), downloads/answers/registry/bundle repair done
+Fetching 11 files:   0%|          | 0/11 [00:00<?, ?it/s]Fetching 11 files:  27%|██▋       | 3/11 [00:00<00:00, 25.61it/s]Fetching 11 files: 100%|██████████| 11/11 [00:00<00:00, 76.30it/s]
+/home/student/ai-infra-course/modules/02-weights-airgap/.tutor/solve-answers.sh: line 45: SHA256SUMS: No such file or directory
+apply-solution: lab/ replaced (backup: lab.bak-20261027-075716), downloads/answers/registry/bundle repair done
 exit=0

@@ -11,19 +11,16 @@
 [PASS] 1.6.3 mig_profile_small correct
 [PASS] 1.6.4 explanation mentions head divisibility
 [PASS] 1.7.1 team_calc.py agrees with the reference on 6 hidden cases
-[BLOCKED] 1.7.2 needs 1.7.1 (a CLI that prints wrong numbers is not a working contract)
+[PASS] 1.7.2 CLI contract intact
 [PASS] 1.3.1 4 concurrent ~1800-token prompts served untruncated
-[PASS] 1.3.2 your bench.py agrees with the counter-based measurement (verify: 21.749290780357327 -> 30.776197342922682 tok/s, yours: 19.9 -> 28.45)
-[PASS] 1.3.3 ratio consistent with the measured 1.42 and the reason is right
+[PASS] 1.3.2 your bench.py agrees with the counter-based measurement (verify: 21.44887476198809 -> 29.066809151738642 tok/s, yours: 22.34 -> 31.56)
+[PASS] 1.3.3 ratio consistent with the measured 1.36 and the reason is right
 [PASS] 1.4.1 second request reused 1153 of ~1143 stable-prefix tokens
 [PASS] 1.4.2 stable part (system + document) is a byte-identical leading prefix
 [PASS] 1.4.3 cache.json consistent with the live token counts
 [PASS] 1.5.1 file sizes exact
-Traceback (most recent call last):
-  File "/home/student/ai-infra-course/modules/01-serving-internals/.lib/checks.py", line 259, in <module>
-    globals()["cmd_" + sys.argv[1]](*sys.argv[2:])
-  File "/home/student/ai-infra-course/modules/01-serving-internals/.lib/checks.py", line 248, in cmd_quant
-    ok = str(a.get("ftype_q4", "")).strip().lower() == t["q4"]["ftype"].lower() and str(a.get("ftype_q8", "")).strip().lower() == t["q8"]["ftype"].lower() and lc(a.get("tensor_types_q4")) == t["q4"]["types"] and lc(a.get("tensor_types_q8")) == t["q8"]["types"]
-AttributeError: 'NoneType' object has no attribute 'lower'
-SCORE: 1/2
+[FAIL] 1.5.2 ftype / tensor type sets differ from what llama-server prints when it loads these files (read the 'llama_model_loader' lines of the load log)
+[PASS] 1.5.3 ratio 3.0786141484703213 consistent with the measured 2.97
+[FAIL] 1.5.4 why_q8_prompt_faster is wrong or bpw_q4/bpw_q8 do not match the load logs of your variant's files (the enum only counts together with the evidence)
+SCORE: 21/23
 exit=1

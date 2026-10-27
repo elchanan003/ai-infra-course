@@ -32,8 +32,8 @@ router_settings:
   redis_host: valkey
   redis_port: 6379
   routing_strategy: simple-shuffle
-  num_retries: 2
-  allowed_fails: 1
+  num_retries: 3
+  allowed_fails: 0
   cooldown_time: 30
   timeout: 30
   enable_pre_call_checks: true

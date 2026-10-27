@@ -15,7 +15,7 @@
 ## 5.3 cooldown
 - H1: Count how many requests reach A during the 20 sequential calls with the defaults.
 - H2: A deployment is cooled down after more than `allowed_fails` failures per minute, for `cooldown_time` seconds; retries make the failure invisible to the client.
-- H3: Lower `allowed_fails` (1), raise `cooldown_time` (e.g. 30), keep `num_retries` at 2 or more. These are global `router_settings`.
+- H3: Lower `allowed_fails` (down to 0), set `cooldown_time` (e.g. 30), and give `num_retries` at least one more attempt than you think you need (the cooldown is registered asynchronously, so early retries can still pick the failing replica). These are global `router_settings`.
 - H4: solution config.
 
 ## 5.4 prices and budget
@@ -30,8 +30,8 @@
 - H3: `MAX_PARALLEL = 8 - R`; `AGENT_TPM` between normal_cpm x tokens_per_call and ten times that; keys in separate teams; chat key RPM only.
 - H4: solution `provision.sh`.
 
-## 5.6 context-window fallback
-- H1: Send the long prompt to `small` and read the status code and error type.
-- H2: A context-length error is a 400 `ContextWindowExceededError`, handled by its own fallback list.
-- H3: `router_settings.context_window_fallbacks: [{"small": ["big"]}]`.
+## 5.6 the fallback that never fires
+- H1: Send the long prompt to `small` and read the status code, the error type and what the message says about `fallbacks=`.
+- H2: A fallback map is keyed by the model group name the client asks for (`model: small`). Compare the key in the existing entry with the group names in `model_list`.
+- H3: The key is `small-chat`, but the group is `small`. Fix the key (keep `ha` from 5.2 as a second entry); `context_window_fallbacks` is the explicit list for context errors and may be added too.
 - H4: solution config.

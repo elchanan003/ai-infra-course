@@ -1,29 +1,3 @@
-groups:
-  - name: vllm.alerts
-    rules:
-      - alert: KVCacheNearFull
-        expr: |
-          max by (model_name) (vllm:kv_cache_usage_perc) > 0.9
-          and on (model_name) (
-                sum by (model_name) (vllm:num_requests_waiting) > 0
-             or sum by (model_name) (rate(vllm:num_preemptions_total[5m])) > 0
-          )
-        for: 2m
-        labels: {severity: warning, team: llm-platform}
-        annotations:
-          summary: "KV cache {{ $value | humanizePercentage }} full on {{ $labels.model_name }} with queueing or preemption"
-          runbook_url: https://runbooks.example.internal/llm/kv-cache-near-full
-      - alert: TTFTHigh
-        expr: model:vllm_ttft_seconds:p95_5m > 1
-        for: 2m
-        labels: {severity: critical, team: llm-platform}
-        annotations:
-          summary: "p95 TTFT {{ $value | humanizeDuration }} on {{ $labels.model_name }} (SLO 1s)"
-          runbook_url: https://runbooks.example.internal/llm/ttft-high
-      - alert: QueueGrowing
-        expr: sum by (model_name) (vllm:num_requests_waiting) > 5
-        for: 3m
-        labels: {severity: warning, team: llm-platform}
-        annotations:
-          summary: "{{ $value }} requests waiting on {{ $labels.model_name }}"
-          runbook_url: https://runbooks.example.internal/llm/queue-growing
+# Task 8.4: alerts KVCacheNearFull / TTFTHigh / QueueGrowing (spec in lab.md).
+# Firing alerts must carry exactly the labels: alertname, model_name, severity, team=llm-platform.
+groups: []

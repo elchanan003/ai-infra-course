@@ -392,6 +392,37 @@ Two numbers from this table decide most reviews: **KV needed vs KV pool** and **
 - "Quantise more to make it faster": only when the format has an efficient kernel on that hardware and the workload is memory-bound; measure.
 - "Our benchmark shows 5,000 tok/s": with which prompt/output lengths, cache state, concurrency and SLO? A number without those is not a capacity.
 
+## 20. Incident walk-throughs (what you would see, in the order you would look)
+
+### 20.1 "TTFT doubled after the weekend deploy"
+1. Is it queueing or prefill? Compare `vllm:request_queue_time_seconds` (histogram, time spent in WAITING) with `vllm:request_prefill_time_seconds`. Queue time up, prefill flat means admission pressure; prefill up means longer prompts or a lost prefix cache.
+2. Check `vllm:gpu_prefix_cache_hit_rate` (or hits/queries counters): a drop from 0.8 to 0.0 after a deploy usually means the prompt template changed (a timestamp or request id near the top), or the router stopped being prefix-aware and spreads sessions across replicas.
+3. Check `vllm:num_requests_waiting` and `vllm:gpu_cache_usage_perc`. Waiting > 0 with KV usage near 1.0 means the KV pool is the limit: a longer `max_model_len` or fewer GPUs per replica shrank the pool.
+4. Only then look at hardware (clock throttling, a neighbour process on a time-sliced GPU).
+In the lab, mock-vllm exposes the same metric names, so you rehearse this reading order on counters, not on wall-clock.
+
+### 20.2 "The server starts, then every long request is rejected"
+- vLLM refuses to start when `max_model_len` needs more KV than the pool holds ("The model's max seq len (N) is larger than the maximum number of tokens that can be stored in KV cache (M)"). That is the friendly failure. The unfriendly one is a pool that fits exactly one maximum-length sequence: the server starts, but concurrency is 1 and everything else queues.
+- Fix order: lower `--max-model-len` to what the product needs (not what the model advertises), raise `--gpu-memory-utilization` only if nothing else lives on the GPU, quantise the KV (`--kv-cache-dtype fp8`) or add TP. Quantising the weights helps only indirectly, by freeing bytes for the pool.
+- llama.cpp analogue (lab 1.3): `-c 4096 -np 4` gives each slot 1024 tokens; a 1800-token prompt gets a 400 error. The context is divided, not shared.
+
+### 20.3 "Throughput is great in the benchmark, terrible in production"
+Typical causes, in order of frequency: the benchmark used identical prompts (everything is a prefix-cache hit); the benchmark used short outputs (decode never dominates); the benchmark ran one replica while production routes round-robin and splits the cache; the benchmark measured average latency of streams, hiding a slow first token. A load test is only a capacity number if it states prompt length distribution, output length distribution, concurrency, cache state and the SLO it was checked against.
+
+### 20.4 "OOM after hours of running fine"
+On real GPUs, KV is pre-allocated, so a steady-state OOM is almost never "KV grew". Suspects: activation spikes from an unusually large `max_num_batched_tokens` batch, a LoRA adapter loaded at runtime, CUDA graph capture at a new batch size, a sidecar process (profiler, a second engine) taking memory the utilisation fraction assumed was free, or fragmentation in the non-KV allocator. Look at `nvidia-smi` per-process memory first, then engine logs around the OOM; teach the learner that the utilisation flag budgets only this instance.
+
+## 21. Three arithmetic drills (check with your own `sizing.py`)
+1. **GQA payoff.** A 32-layer model with 32 attention heads, 8 KV heads, head_dim 128, FP16 KV. Per token: 2 x 32 x 8 x 128 x 2 = 131,072 B = 128 KiB. An 8k sequence: 1 GiB. Same model as MHA (32 KV heads): 4 GiB per 8k sequence. On a 24 GiB card with ~8 GiB left for KV, that is 8 sequences versus 2.
+2. **Concurrency from a budget.** 80 GiB GPU, util 0.90, 14 GiB weights, 3 GiB overhead: pool = 72 - 14 - 3 = 55 GiB. At 1 GiB per 8k sequence that is 55 simultaneous full-length sequences; real chat traffic averages maybe 1.5k tokens, so the same pool carries several hundred sequences, which is why `max_num_seqs` (default 256 in V1) becomes the next limit.
+3. **Throughput bound from bandwidth.** Decode reads all weights once per step. 14 GiB weights on a 2 TB/s card: at best 2000/14.0 ~ 140 steps per second per batch; at batch 32 that is ~4,500 tok/s before KV reads and kernel overheads. The same weights on a 60 GB/s CPU memory system give ~4 steps/s, which is why the lab measures *ratios* (batch 4 vs batch 1) and not absolute speeds.
+
+## 22. What to say when someone proposes...
+- "Let's just raise `--gpu-memory-utilization` to 0.98": ask what else is on the GPU (monitoring agents, a second model, MIG neighbours) and what the headroom for activation spikes is. 0.90 is the common default for a reason.
+- "Use the biggest context the model supports": every extra token of `max_model_len` is a requirement on the pool at startup and a cost in worst-case scheduling; size to the 99th percentile of real prompts plus output.
+- "Swap in a 4-bit model, it is cheaper": cheaper in weights; check quality on your eval set, kernel support (Marlin, FP8 needs Hopper/Ada or later), and that KV did not change.
+- "Run two engines on one GPU": time-slicing gives no isolation and no memory partitioning; MIG does (on supported cards) but fixes the slice sizes.
+
 ## Key takeaways
 1. Prefill is compute-bound and sets TTFT; decode is memory-bandwidth-bound and sets ITL. Batching amortises weight reads: throughput up, latency up.
 2. KV per token = 2 × layers × **kv_heads** × head_dim × bytes. GQA/MLA shrink it; context length × concurrency grows it; weight quantisation does not touch it.

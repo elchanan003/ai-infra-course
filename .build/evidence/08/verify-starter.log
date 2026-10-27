@@ -4,13 +4,24 @@
 [PRE] mock-vllm A and B healthy: NOT OK
 [PRE] variant seeded: ok
 [PRE] no leftover faults: NOT OK
-[PASS] 8.1a targets up: vllm=2 litellm=1 llamacpp=1
-[PASS] 8.1b replica labels a,b present; LiteLLM and llama.cpp series exist
-[PASS] 8.2a recording rules produce the expected p95 TTFT/ITL and token rate on synthetic series
-[PASS] 8.2b live recorded p95 TTFT (0.7122639143134034) matches the direct quantile (0.7122635590966102)
-[PASS] 8.3a dashboard 'ai-serving' provisioned with all seven panels
-[PASS] 8.3b every panel query returns data
-[PASS] 8.3c Spend per key has one series per key; KV values are within 0..1
-[PASS] 8.4a KVCacheNearFull fires with queue/preemption, quiet for KV 0.95 alone
-[PASS] 8.4b TTFTHigh fires only after its for-duration, quiet below the SLO
-[PASS] 8.4c QueueGrowing fires at waiting=8 for 3m, quiet at 3 and for a 1-minute spike
+[FAIL] 8.1a targets up: vllm=0 (want 2) litellm=0 (want 1) llamacpp=0 (want 1); check job names, the LiteLLM metrics path (307 redirect), and Status > Targets
+[FAIL] 8.1b series check: replica labels='' (want a,b), litellm requests series='none', llamacpp tokens series='none'
+[FAIL] 8.2a recording-rule test failed (  FAILED:): combine replicas first (sum by (le,...) of rate), quantile last; names must match the lab spec
+[FAIL] 8.2b live recorded series missing vs direct quantile missing: is the rule loaded (Prometheus /rules) and evaluating without errors?
+[FAIL] 8.3a dashboard problem: ITL p95,Tokens per second,Queue (waiting/running),KV cache usage,Preemptions,Spend per key (uid must stay 'ai-serving'; panel titles exact; Grafana reloads provisioned files every ~10 s)
+[BLOCKED] 8.3b needs 8.3a
+[BLOCKED] 8.3c needs 8.3a
+[FAIL] 8.4a KVCacheNearFull test failed (  FAILED:): it must need BOTH high KV and (queue or preemptions); labels severity=warning team=llm-platform; for: 2m
+[FAIL] 8.4b TTFTHigh test failed (  FAILED:): SLO 1 s, for 2m, severity=critical team=llm-platform
+[FAIL] 8.4c QueueGrowing test failed (  FAILED:): threshold 5, for 3m, severity=warning
+[FAIL] 8.4d KVCacheNearFull did not fire within 240 s of kv_pressure + queueing load: check the rule is loaded, the expression sees vllm:kv_cache_usage_perc > 0.9 and waiting/preemptions, and for: is 2m
+[BLOCKED] 8.4e needs 8.4d
+[BLOCKED] 8.4f needs 8.4d
+[PRE] spend logs flushed: ok
+[FAIL] 8.5a gateway tokens: spend logs='REPLACE_ME' prometheus='REPLACE_ME' (reconcile.sh must print numbers for THIS window; the key alias is unique to the run; spend logs are batch-written)
+[FAIL] 8.5b engine tokens 'REPLACE_ME' do not match the run: use the difference of the counter between the window edges (increase() extrapolates), engine A only
+[FAIL] 8.5c GAP_CAUSE='REPLACE_ME' BYPASS_REQUESTS='REPLACE_ME': engine tokens exceed gateway tokens; work out what produces engine traffic the gateway never saw, and how many requests it takes (tokens per gateway request is in the spend logs)
+[FAIL] 8.6a TTFT panel query does not match the p95 of the synthetic histogram (within 10%): a mean or an average of sums is not a quantile; aggregate buckets with sum by (le) and use histogram_quantile (theory section 3)
+[FAIL] 8.6b panel does not react to a tail slowdown: lifetime counters and averages hide it; use a rate window over buckets
+SCORE: 0/18
+exit=1

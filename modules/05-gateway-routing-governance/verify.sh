@@ -27,7 +27,7 @@ elif passed 5.1.2; then pass 5.1.1 "200 requests on 'chat' all returned 200 on a
 else blocked 5.1.1 "needs 5.1.2 (a working weighted split) - an unweighted group answering 200 proves nothing"; fi
 req "$MASTER" chat "id-check" >/dev/null; hid=$(grep -i '^x-litellm-model-id' "$TMP/hdr" | tr -d '\r' | awk '{print $2}')
 ids=$(admin GET /model/info | jq -r '[.data[]|select(.model_name=="chat")|.model_info.id]|sort|join(",")')
-[ "$ids" = "chat-a,chat-b" ] && { [ "$hid" = chat-a ] || [ "$hid" = chat-b ]; } && pass 5.1.3 "deployments carry the ids chat-a / chat-b (response shows $hid)" || fail 5.1.3 "group chat has deployment ids [$ids], response id '$hid' - set stable model_info.id values chat-a and chat-b"
+[ "$ids" = "chat-a,chat-b" ] && { [ "$hid" = chat-a ] || [ "$hid" = chat-b ]; } && pass 5.1.3 "deployments carry the ids chat-a / chat-b and responses report one of them" || fail 5.1.3 "group chat has deployment ids [$ids], response id '$hid' - set stable model_info.id values chat-a and chat-b"
 
 # ---------------------------------------------------------------- 5.2 fallback group -> group
 reset_mocks; b0=$(mhits B); ok=0
@@ -35,10 +35,12 @@ mock_fault A POST '{"error_rate":1.0}' >/dev/null
 for i in $(seq 1 10); do c=$(req "$MASTER" ha "fb $i $N"); [ "$c" = 200 ] && ok=$((ok+1)); done
 b1=$(mhits B); mock_fault A DELETE >/dev/null
 [ "$ok" = 10 ] && [ $((b1-b0)) -ge 10 ] && pass 5.2.1 "A failing: 10/10 requests on 'ha' answered 200 and B served them" || fail 5.2.1 "A failing: $ok/10 x 200, B served $((b1-b0)) - group ha must fall back to group ha-backup (fallbacks map group -> group)"
+# the 5.2.1 fault may have put A in cooldown: wait (bounded) until A serves group ha again before the control
+a0=$(mhits A); for w in $(seq 1 35); do req "$MASTER" ha "wait $w $N" >/dev/null; [ "$(mhits A)" -gt "$a0" ] && break; sleep 2; done
 b0=$(mhits B); ok=0; for i in $(seq 1 10); do c=$(req "$MASTER" ha "healthy $i $N"); [ "$c" = 200 ] && ok=$((ok+1)); done; b1=$(mhits B)
 if ! passed 5.2.1; then blocked 5.2.2 "needs 5.2.1 (a fallback that works) - a control without the fallback proves nothing"
 elif [ "$ok" = 10 ] && [ "$b1" = "$b0" ]; then pass 5.2.2 "healthy A: 10/10 x 200 and B untouched"
-else fail 5.2.2 "healthy A: $ok/10 x 200, B served $((b1-b0)) - a fallback must only fire on failure"; fi
+else fail 5.2.2 "healthy A: $ok/10 x 200, B served $((b1-b0)) - a fallback must only fire on failure (or A never left its cooldown within 70 s: cooldown_time too long)"; fi
 mock_fault A POST '{"error_rate":1.0}' >/dev/null; mock_fault B POST '{"error_rate":1.0}' >/dev/null
 t0=$(date +%s); c=$(req "$MASTER" ha "both $N"); dt=$(( $(date +%s)-t0 )); reset_mocks
 clean_err=$(jq -e '.error.message // .detail // .error' "$TMP/body" >/dev/null 2>&1 && echo y || echo n)
