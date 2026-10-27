@@ -97,6 +97,7 @@ plant_3() {
   stack_up_inc 3 || die "stack did not come up healthy (platform/stack.sh status)"
   inc_env 3; recreate mock-vllm-a mock-vllm-b mock-dcgm-a mock-dcgm-b
   local s; for s in mock-vllm-a mock-vllm-b mock-dcgm-a mock-dcgm-b; do svc_health "$s" 60 || die "$s not healthy"; done
+  recreate litellm   # fresh DNS/connection pool: recreated backends get new container IPs (a stale pool/DNS entry may hit another container -> 404)
   gw_wait "$GW1" 120 || die "gateway not healthy"; prom_ready 60 || die "Prometheus not ready"
   echo "prepare-lab: 40 s of normal traffic (your 'before')"
   local b; b=$("$PY" "$LIB/loadgen.py" --urls "$GW1" --key "$LITELLM_KEY" --model chat --workers 1 --duration 40 --think-ms 700 --tag base)
@@ -104,6 +105,7 @@ plant_3() {
   echo "prepare-lab: hardware fault on one GPU node; traffic continues (70 s)"
   i3_inject; recreate "mock-vllm-$NODE" "mock-dcgm-$NODE"
   svc_health "mock-vllm-$NODE" 60 && svc_health "mock-dcgm-$NODE" 60 || die "sick node containers not healthy"
+  recreate litellm; gw_wait "$GW1" 120 || die "gateway not healthy after the node restart"
   local t0; t0=$(date +%s)
   b=$("$PY" "$LIB/loadgen.py" --urls "$GW1" --key "$LITELLM_KEY" --model chat --workers 1 --duration 70 --think-ms 700 --timeout 30 --tag inc)
   win_set 3 "$t0" "$(date +%s)"

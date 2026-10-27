@@ -1,6 +1,12 @@
-prepare-lab: previous lab/incident-3 saved to lab.bak-prepare-20261027113253-3
-prepare-lab: converging profiles gw mock obs (healthy first; the fault is planted after a baseline)
-prepare-lab: 40 s of normal traffic (your 'before')
-prepare-lab: hardware fault on one GPU node; traffic continues (70 s)
-prepare-lab: ERROR the sick replica received no traffic: {"n": 83, "codes": {"200": 38, "404": 45}, "lat_max": 0.256, "lat_p95": 0.249}
-exit=1
+prepare-lab: converging profiles gw mock obs (mock-vllm A starts from lab/incident-2/mock-vllm-a)
+prepare-lab: off-peak traffic with the previous flags (your 'before', ~40 s)
+prepare-lab: release 2026.10.26 is deployed, then the daily peak arrives
+PAGE 2 - 12:31 UTC  "Latency spikes at peak since yesterday's release"
+  TTFT p95 is a multiple of the SLO during the daily peak since yesterday's release. Off-peak is fine. GPU utilisation looks fine.
+  Your files: lab/incident-2/mock-vllm-a/args (the flags mock-vllm A starts with; gpu.yaml next to it is the GPU and is given).
+  Context: lab/incident-2/RELEASE-NOTES.md, lab/incident-2/PEAK.md. Direct engine: http://127.0.0.1:18021 (metrics, /admin/stats); gateway model "mock-a".
+  Restart the engine after editing args with the given lab/incident-2/restart.sh (the engine reads its flags only at start).
+  Incident window (UTC): 12:30:56 - 12:31:51  (epoch 1793104256 - 1793104311; Prometheus keeps the data)
+
+prepare-lab: incident 2 is live. Work in lab/incident-2/ and lab/answers/2-*.env, lab/postmortem-2.md; then ./verify.sh 2
+exit=0

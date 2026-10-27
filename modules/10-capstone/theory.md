@@ -320,9 +320,10 @@ Settings of the LiteLLM router that matter for a sick deployment: `timeout` (per
 behind (`allowed_fails: 1000`, `num_retries: 0` means: never eject, never retry).
 - With simple shuffle over two deployments and one sick, half of the requests land on it. If it stalls 6 s and fails 30 % of the time,
   40 sequential requests see about 20 slow or failed responses: the "half the requests are slow, a few time out" of the page.
-- With `timeout: 2`, `num_retries: 2`, `allowed_fails: 1`, `cooldown_time: 30`: the first request to the sick node is cut at 2 s and
-  retried on the peer (user latency about 2 s + healthy latency), the second failure ejects the node, and for 30 s everything goes to
-  the peer. A user never waits for 6 s, and the sick node serves two or three requests instead of twenty.
+- With `timeout: 2`, `num_retries: 3`, `allowed_fails: 0`, `cooldown_time: 30`: the first request to the sick node is cut at 2 s and
+  retried on the peer (user latency about 2 s + healthy latency), that first failure ejects the node, and for 30 s everything goes to
+  the peer. A user never waits for 6 s, and the sick node serves a handful of requests instead of twenty. (Module 05 measured on
+  v1.106.4 that `allowed_fails: 1` with `num_retries: 2` is flaky - a retry can land on the sick node again - while `0` / `3` is stable.)
 - Cooldown must be **temporary**: when the node recovers (reset, cooled down) it has to take traffic again without a human; verify
   checks both directions. A permanent removal from the config is a mitigation, not a router policy.
 - Trade-offs: a timeout shorter than the real p99 of long generations cuts good requests (use streaming: time-to-first-token is the

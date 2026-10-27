@@ -47,7 +47,7 @@ Task ids: `incN-find` (cause), `incN-fix` (N.1/N.2), `incN-evid` (N.4), `pm` (N.
 - H1: What happens to a request that lands on the sick node today: how long does it wait and how often is the node tried again?
 - H2: Bound the wait below the sick stall, retry on the peer, eject after few failures, and let it back after a cooldown (ejection must be temporary).
 - H3: Mind the arithmetic: timeout x attempts must stay below what a user may wait; allowed_fails 1000 means never eject.
-- H4: `router_settings: {timeout: 2, num_retries: 2, allowed_fails: 1, cooldown_time: 30}`; `restart.sh`.
+- H4: `router_settings: {timeout: 2, num_retries: 3, allowed_fails: 0, cooldown_time: 30}`; `restart.sh`.
 ### inc3-evid
 - H1: Node, XID, UUID, temperature are in the DCGM exporters.
 - H2: Find the GPU whose `DCGM_FI_DEV_XID_ERRORS` is non-zero; labels carry `UUID`.

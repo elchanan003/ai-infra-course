@@ -89,7 +89,7 @@ check_4() {
     v=$(ef 5 WRONG_RESOURCE); [ "$v" = "nvidia.com/gpus" ] || bad+="WRONG_RESOURCE, "
     v=$(lc "$(ef 5 FIRST_REASON)"); [ "$v" = untolerated-taint ] || bad+="FIRST_REASON, "
     v=$(lc "$(ef 5 SECOND_REASON)"); [ "$v" = insufficient-gpu ] || bad+="SECOND_REASON, "
-    live=$(k get node "$(vget 5 NEW)" -o json 2>/dev/null | jq -r '.status.allocatable["nvidia.com/gpu"] // empty')
+    live=$(k get node "$(vget 5 NODE)" -o json 2>/dev/null | jq -r '.status.allocatable["nvidia.com/gpu"] // empty')
     v=$(ef 5 GPU_CAPACITY_AFTER); { num "$v" && [ -n "$live" ] && [ "$live" -ge 1 ] && [ "$v" = "$live" ]; } || bad+="GPU_CAPACITY_AFTER, " ;;
   esac
   local f="$LAB/answers/$N-evidence.env" tp=0 line

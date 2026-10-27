@@ -19,6 +19,6 @@ litellm_settings:
 router_settings:
   routing_strategy: simple-shuffle
   timeout: 2             # a request that waits longer than the healthy latency x a few is a failure
-  num_retries: 2         # retry on another deployment
-  allowed_fails: 1       # failures per minute before the deployment is ejected
+  num_retries: 3         # retry on another deployment
+  allowed_fails: 0       # failures tolerated before the deployment is ejected (measured stable on v1.106.4; 1 was flaky in module 05)
   cooldown_time: 30      # ejection is temporary
