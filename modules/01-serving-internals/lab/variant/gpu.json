@@ -1,0 +1,6 @@
+{
+ "gpu_gib": 24,
+ "util": 0.9,
+ "overhead_gib": 2.0,
+ "tp": 1
+}

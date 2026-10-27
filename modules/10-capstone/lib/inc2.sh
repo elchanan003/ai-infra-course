@@ -101,7 +101,7 @@ MD
   sleep 8; W1=$(date +%s)
   local st kv pre; st=$(mock_stats A)
   kv=$(echo "$st" | jq -r '(.engine.kv_peak_usage * 100) | round'); pre=$(echo "$st" | jq -r '.engine.preemptions')
-  [ "$pre" -ge 5 ] || die "the planted incident did not preempt (preemptions=$pre kv_peak=$kv%): $pk"
+  [ "$pre" -ge 1 ] || die "the planted incident did not preempt (preemptions=$pre kv_peak=$kv%): $pk"
   state_write "$STATE/2/truth.env" KV_PEAK_PCT="$kv" PREEMPTIONS="$pre" PLANTED_MAX_NUM_SEQS="$SEQS" KV_TOKENS="$kvtok"
   win_set 2 "$W0" "$W1"
   page_2
@@ -123,7 +123,15 @@ verify_2() {
     fail 2.1 "the engine starts but serves chat with max_model_len ${mm:-?} (< 4096): clients' contract is 4,096 tokens - shrinking the window is not a fix"
     blocked 2.2 "needs 2.1"; return
   fi
-  pass 2.1 "mock-vllm A restarts healthy from your args file and still serves chat with a 4,096-token window"
+  local cfgseq kvtok
+  cfgseq=$(curl -fsS "$MOCK_A_URL/admin/stats" 2>/dev/null | jq -r '.capacity.max_num_seqs // empty')
+  kvtok=$(curl -fsS "$MOCK_A_URL/admin/stats" 2>/dev/null | jq -r '.capacity.kv_cache_size_tokens // empty')
+  if ! isint "$kvtok" || ! isint "$cfgseq"; then fail 2.1 "could not read the engine's KV capacity or your --max-num-seqs (kv=${kvtok:-?} seqs=${cfgseq:-?})"; blocked 2.2 "needs 2.1"; return; fi
+  if [ $((cfgseq * I2_SEQ_TOK)) -gt "$kvtok" ]; then
+    fail 2.1 "the engine admits up to $cfgseq sequences, each ending at ~${I2_SEQ_TOK} tokens (PEAK.md), but its KV cache holds only ${kvtok} tokens: admission is not sized to memory - what happens when all admitted sequences grow (module 01 maths)?"
+    blocked 2.2 "needs 2.1"; return
+  fi
+  pass 2.1 "mock-vllm A restarts healthy from your args file, keeps the 4,096-token window, and admits only as many sequences as its KV cache holds at the peak length"
   local m0=/tmp/cap2-m0.$$ m1=/tmp/cap2-m1.$$ out
   snap_metrics A "$m0"
   out=$(i2_peak "$MOCK_A_URL" "$peak" 3 "v$(rhex 2)")

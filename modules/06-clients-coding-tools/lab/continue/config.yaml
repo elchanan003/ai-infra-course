@@ -1,17 +1,7 @@
+# Lab 06 task 6.3 (yours): Continue config (schema v1). Two roles, two keys, two aliases.
 name: lab-assistant
 version: 1.0.0
 schema: v1
-models:
-  - name: Lab chat
-    provider: openai
-    model: chat
-    apiBase: http://127.0.0.1:18040/v1
-    apiKey: sk-lab06-continue-chat
-    roles: [chat, edit, apply]
-  - name: Lab autocomplete
-    provider: openai
-    model: coder
-    apiBase: http://127.0.0.1:18040/v1
-    apiKey: sk-lab06-continue-fim
-    roles: [autocomplete]
-    defaultCompletionOptions: {maxTokens: 64, temperature: 0.1}
+models: []
+# TODO: chat model (roles chat, edit, apply) -> alias chat, key lab-continue-chat
+# TODO: autocomplete model -> alias coder, key lab-continue-fim, small maxTokens

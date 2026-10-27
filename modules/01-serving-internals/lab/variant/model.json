@@ -1,0 +1,12 @@
+{
+ "params_b": 6.74,
+ "layers": 32,
+ "num_attention_heads": 32,
+ "num_key_value_heads": 32,
+ "head_dim": 128,
+ "hidden_size": 4096,
+ "name": "llama-2-7b",
+ "bytes_per_param": 2,
+ "kv_bytes": 2,
+ "seq_len": 4096
+}

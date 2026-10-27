@@ -6,12 +6,12 @@ models:
     provider: openai
     model: chat
     apiBase: http://127.0.0.1:18040/v1
-    apiKey: sk-lab06-continue-chat
+    apiKey: sk-lab06-continue-chat-key0003
     roles: [chat, edit, apply]
   - name: Lab autocomplete
     provider: openai
     model: coder
     apiBase: http://127.0.0.1:18040/v1
-    apiKey: sk-lab06-continue-fim
+    apiKey: sk-lab06-continue-fim-key0004
     roles: [autocomplete]
     defaultCompletionOptions: {maxTokens: 64, temperature: 0.1}

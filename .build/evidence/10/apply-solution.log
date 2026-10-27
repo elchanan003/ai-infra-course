@@ -1,6 +1,0 @@
-restart: litellm healthy
-restart: litellm-2 healthy
-apply-keys: chat-0c32b5 -> 
-apply-keys: agent-0c32b5 -> rpm_limit=28, max_parallel_requests=2
-apply-solution: incident 1 fixed and answered
-exit=0

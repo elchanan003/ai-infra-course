@@ -35,7 +35,7 @@ curl -s localhost:18080/health
 
 **Success criteria**
 - `6.1.1` Verify signs in to Open WebUI, `GET /api/models` lists `chat` and not `agent`/`coder` (models the key may not use).
-- `6.1.2` A verify-sent chat with a nonce through Open WebUI (`/api/chat/completions`) returns 200 and the nonce arrives at the gateway under key `lab-owui` (stored prompt in the spend log, bounded poll).
+- `6.1.2` A verify-sent chat through Open WebUI (`/api/chat/completions`) returns 200 and a new spend-log row appears for key `lab-owui`, model group `chat` (bounded poll: the batch writer lags 2-5 s). Only Open WebUI holds that key, so the row proves which credential the UI used.
 - `6.1.3` Open WebUI's stored OpenAI connection list is exactly the gateway (as the container sees it: `http://litellm:4000/v1`) with the `lab-owui` key.
 - `6.1.4` `connect.sh` is idempotent (second run exit 0, same end state).
 
@@ -45,7 +45,8 @@ curl -s localhost:18080/health
 
 1. Create key `lab-aider` in `provision.sh` (model `agent` only, small `max_parallel_requests`), value `LAB_KEY_AIDER`.
 2. Fill `aider/aider.env` (`OPENAI_API_BASE`, `OPENAI_API_KEY`, model name with the right prefix, offline-hygiene flags) and `aider/run.sh` which runs Aider headless (`--message`, `--yes-always`, no auto-update/analytics; keep the `LAB_KEY_OVERRIDE` line the skeleton gives you) against the scratch repo `lab/aider/repo/` with the file named in the task text there. Aider is from `platform/.venv-aider`.
-3. mock-chat answers the instruction "set the banner to <word>" with a SEARCH/REPLACE block. Read the model's answer in Aider's output and make Aider's edit format match it (for an unknown model Aider's default is a different format).
+3. Try it with a wrong key by hand: what exit code does Aider give? A CI job or wrapper script needs the exit code to mean "the edit happened" - make `run.sh` report that.
+4. mock-chat answers the instruction "set the banner to <word>" with a SEARCH/REPLACE block. Read the model's answer in Aider's output and make Aider's edit format match it (for an unknown model Aider's default is a different format).
 
 **Success criteria**
 - `6.2.1` After `run.sh` (executed by verify with a nonce instruction), the target file in the scratch repo contains the expected change.

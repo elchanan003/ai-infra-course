@@ -1,0 +1,2 @@
+Q4=Qwen2.5-Coder-0.5B-Q4_K_M.gguf
+Q8=Qwen2.5-Coder-0.5B-Q8_0.gguf

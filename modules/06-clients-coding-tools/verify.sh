@@ -13,6 +13,9 @@ precond "host load low" wait_idle 70 60 || { warn - "host busy - not scoring"; b
 reset_mocks
 N="n$(date +%s)$RANDOM"
 
+wait_rows() {  # KEY GROUP MIN [timeout] - bounded poll until the spend log holds >= MIN rows for key+group (batch writer lag)
+  local k="$1" g="$2" n="$3" t="${4:-40}" st; st=$(date +%s)
+  while [ "$(spend_rows "$k" "$g" 2>/dev/null || echo 0)" -lt "$n" ] 2>/dev/null; do [ $(( $(date +%s)-st )) -ge "$t" ] && return 1; sleep 1; done; return 0; }
 run_provision() { ( cd "$LAB" && timeout 120 bash ./provision.sh ) >"$TMP/prov.log" 2>&1; }
 run_connect() { ( cd "$LAB/openwebui" && timeout 150 bash ./connect.sh ) >"$TMP/conn.log" 2>&1; }
 run_provision; run_provision; run_connect; rc1=$?; run_connect; rc2=$?
@@ -26,9 +29,9 @@ if [ -z "$tok" ]; then for i in 6.1.1 6.1.2 6.1.3; do blocked $i "cannot sign in
   before=$(spend_rows "$LAB_KEY_OWUI" chat)
   c=$(curl -sS -o "$TMP/chat.json" -w '%{http_code}' --max-time 120 "$OWUI/api/chat/completions" -H "Authorization: Bearer $tok" -H 'Content-Type: application/json' \
       -d "$(jq -nc --arg p "nonce $N through the UI" '{model:"chat",stream:false,max_tokens:16,messages:[{role:"user",content:$p}]}')")
-  within 40 bash -c "[ \"\$(docker exec $PGC psql -U llm -d litellm -tAc \"select count(*) from \\\"LiteLLM_SpendLogs\\\" where api_key='$(keyhash "$LAB_KEY_OWUI")' and messages::text like '%$N%'\" | tr -d ' \r')\" -ge 1 ]"; arrived=$?
-  [ "$c" = 200 ] && [ "$arrived" = 0 ] && pass 6.1.2 "nonce chat through Open WebUI returned 200 and arrived at the gateway under key lab-owui" \
-    || fail 6.1.2 "chat via Open WebUI: HTTP $c, nonce seen under lab-owui: $([ $arrived = 0 ] && echo yes || echo no) - the UI must call the gateway with its own key"
+  wait_rows "$LAB_KEY_OWUI" chat $((before+1)) 40; arrived=$?
+  [ "$c" = 200 ] && [ "$arrived" = 0 ] && pass 6.1.2 "chat through Open WebUI returned 200 and arrived at the gateway under key lab-owui (new spend row)" \
+    || fail 6.1.2 "chat via Open WebUI: HTTP $c, new spend row under lab-owui: $([ $arrived = 0 ] && echo yes || echo no) - the UI must call the gateway with its own key"
   cfg=$(curl -sS --max-time 20 "$OWUI/openai/config" -H "Authorization: Bearer $tok")
   urls=$(echo "$cfg" | jq -c '.OPENAI_API_BASE_URLS'); keys=$(echo "$cfg" | jq -c '.OPENAI_API_KEYS')
   [ "$urls" = '["http://litellm:4000/v1"]' ] && [ "$keys" = "[\"$LAB_KEY_OWUI\"]" ] && pass 6.1.3 "Open WebUI's only upstream is the gateway with key lab-owui" \
@@ -43,14 +46,14 @@ R="$LAB/aider/repo"; git -C "$R" checkout -q -- . 2>/dev/null; git -C "$R" clean
 before=$(spend_rows "$LAB_KEY_AIDER" agent)
 t0=$(date +%s); ( cd "$LAB/aider" && timeout 150 bash ./run.sh "set the banner to V${N}" ) >"$TMP/aider.log" 2>&1; arc=$?; AT=$(( $(date +%s)-t0 ))
 grep -q "BANNER = \"V${N}\"" "$R/app.py" && pass 6.2.1 "Aider edited app.py through the gateway" || fail 6.2.1 "app.py not changed (run.sh exit $arc): $(tail -3 "$TMP/aider.log" | tr '\n' ' ' | head -c 300) - check model name/prefix, edit format and non-interactive flags"
-litellm_flush_wait "$LAB_KEY_AIDER" $((before+1)) 40
+wait_rows "$LAB_KEY_AIDER" agent $((before+1)) 40
 after=$(spend_rows "$LAB_KEY_AIDER" agent)
 [ "${after:-0}" -gt "${before:-0}" ] && pass 6.2.2 "gateway logged Aider's request under key lab-aider, model group agent" || fail 6.2.2 "no spend row for lab-aider on group agent - Aider must use the gateway, the dedicated key and the alias 'agent'"
 [ "$arc" = 0 ] && [ "$AT" -le 120 ] && { pass 6.2.3 "run.sh exits 0 within 120 s without interaction"; echo "~ aider took ${AT}s"; } || fail 6.2.3 "run.sh exit $arc after ${AT}s - it must run non-interactively and finish (no prompts, update checks or analytics)"
 git -C "$R" checkout -q -- . 2>/dev/null
 ( cd "$LAB/aider" && LAB_KEY_OVERRIDE="sk-bogus-$N" timeout 120 bash ./run.sh "set the banner to W${N}" ) >"$TMP/aider2.log" 2>&1; brc=$?
 if ! passed 6.2.1; then blocked 6.2.4 "needs 6.2.1 (a run.sh that works) - a script that never runs also 'fails cleanly'"
-elif [ "$brc" != 0 ] && ! grep -q "W${N}" "$R/app.py"; then pass 6.2.4 "bogus key: non-zero exit and file unchanged"; else fail 6.2.4 "bogus key run exit $brc, file changed: $(grep -c "W$N" "$R/app.py") - keep the LAB_KEY_OVERRIDE line and let Aider fail on auth errors"; fi
+elif [ "$brc" != 0 ] && ! grep -q "W${N}" "$R/app.py"; then pass 6.2.4 "bogus key: non-zero exit and file unchanged"; else fail 6.2.4 "bogus key run exit $brc, file changed: $(grep -c "W$N" "$R/app.py") - keep the LAB_KEY_OVERRIDE line; Aider itself exits 0 on an API error, so run.sh must turn 'no edit happened' into a non-zero exit"; fi
 git -C "$R" checkout -q -- . 2>/dev/null
 
 # ---------------------------------------------------------------- 6.3 Continue
@@ -69,7 +72,7 @@ PY
 b_chat=$(spend_rows "$LAB_KEY_CONTINUE_CHAT" chat); b_fim=$(spend_rows "$LAB_KEY_CONTINUE_FIM" coder)
 rep=$(bash "$LAB/continue/replay.sh" 2>/dev/null)
 cs=$(echo "$rep" | jq -r '.chat.status // 0'); as=$(echo "$rep" | jq -r '.autocomplete.status // 0')
-litellm_flush_wait "$LAB_KEY_CONTINUE_CHAT" $((b_chat+1)) 40; litellm_flush_wait "$LAB_KEY_CONTINUE_FIM" $((b_fim+1)) 40
+wait_rows "$LAB_KEY_CONTINUE_CHAT" chat $((b_chat+1)) 40; wait_rows "$LAB_KEY_CONTINUE_FIM" coder $((b_fim+1)) 40
 a_chat=$(spend_rows "$LAB_KEY_CONTINUE_CHAT" chat); a_fim=$(spend_rows "$LAB_KEY_CONTINUE_FIM" coder)
 [ "$cs" = 200 ] && [ "${a_chat:-0}" -gt "${b_chat:-0}" ] && pass 6.3.2 "chat request: 200, logged under lab-continue-chat on group chat" || fail 6.3.2 "chat replay status=$cs, rows under lab-continue-chat/chat: $((a_chat-b_chat)) - model alias and key of the chat role"
 fim=$(mock_stats B | jq -c '[.last_requests[]?|select(.endpoint=="completions")]|last // {}')

@@ -176,8 +176,8 @@ verify_1() {  # sets results for 1.1 / 1.2
   else pass 1.1 "a key limit of 3 holds across both replicas after a restart with your config and keys.yaml"; fi
   if ! passed 1.1; then blocked 1.2 "needs 1.1"; return; fi
   # --- 1.2 live: agent flood vs chat in the same team window
-  probe_chat_both() { [ "$(req_code "$GW1" "$CK" chat clear)" = 200 ] && [ "$(req_code "$GW2" "$CK" chat clear)" = 200 ]; }
-  if ! within 75 probe_chat_both; then fail 1.2 "the chat key could not get a 200 on both replicas within 75 s (quota window did not clear): the chat key is starved by something else"; return; fi
+  probe_chat_both() { [ "$(req_code "$GW1" "$CK" chat clear)" = 200 ] && [ "$(req_code "$GW2" "$CK" chat clear)" = 200 ] && [ "$(req_code "$GW1" "$AK" chat clear)" = 200 ]; }
+  if ! within 75 probe_chat_both; then fail 1.2 "the chat key and the agent key could not both get a 200 within 75 s (quota window did not clear): something else keeps using the shared quota"; return; fi
   local a0=/tmp/cap1-a0.$$ a1=/tmp/cap1-a1.$$ b0=/tmp/cap1-b0.$$ b1=/tmp/cap1-b1.$$ ag ch
   snap_metrics A "$a0"; snap_metrics B "$b0"
   ag=$("$PY" "$LIB/loadgen.py" --urls "$GW1,$GW2" --key "$AK" --model chat --workers 1 --count $((TL+2)) --tag "ag$nonce")
@@ -197,5 +197,5 @@ verify_1() {  # sets results for 1.1 / 1.2
   awk -v t="$tt" -v s="$SLO_TTFT_GW_S" 'BEGIN{exit !(t<=s)}' || msg+="engine TTFT p95 ${tt}s (virtual) is above the ${SLO_TTFT_GW_S}s SLO; "
   if [ -z "$msg" ]; then pass 1.2 "agent flood is capped inside the team quota, chat keeps its share (8/8 x 200), no 5xx, engine TTFT within the SLO"
     echo "~ agent $ag200 x 200 / $ag429 x 429 (cap $cap), TTFT p95 ${tt}s (virtual)"
-  else fail 1.2 "${msg%; }"; fi
+  else fail 1.2 "${msg%; }"; echo "~ raw agent=$ag chat=$ch body429=$(curl -s --max-time 20 "$GW1/v1/chat/completions" -H "Authorization: Bearer $AK" -H 'Content-Type: application/json' -d '{"model":"chat","messages":[{"role":"user","content":"x"}]}' | cut -c1-300)"; fi
 }

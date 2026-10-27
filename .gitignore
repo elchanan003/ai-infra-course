@@ -6,3 +6,4 @@ __pycache__/
 .venv/
 .build/spike/
 modules/06-clients-coding-tools/lab/aider/repo/
+.claude/

@@ -1,14 +1,1 @@
-prepare-lab: converging profiles gw gw2 mock obs (two gateway replicas, mock engines, Prometheus)
-prepare-lab: 30 s of normal chat traffic (your 'before')
-prepare-lab: the agents team starts its batch (60 s)
-PAGE 1 - 09:24 UTC  "Chat users get 429s and slow answers while one team is working"
-  Chat users of the internal assistant report HTTP 429 and slow answers since the agents team started its nightly batch.
-  Both gateway replicas are up (http://127.0.0.1:18040 and :18041), the engines behind them are healthy.
-  Policy from the platform owner: the chat key must keep at least 12 requests per minute of the team's quota.
-  Your files: lab/incident-1/litellm/config.yaml (both replicas mount this directory) and lab/incident-1/keys.yaml
-  (applied with the given lab/incident-1/apply-keys.sh). Tokens: lab/incident-1/keys.env. The team quota is platform policy (not yours).
-  Restart both replicas after a config edit with the given lab/incident-1/restart.sh.
-  Incident window (UTC): 09:22:59 - 09:24:00  (epoch 1793092979 - 1793093040; Prometheus keeps the data)
-
-prepare-lab: incident 1 is live. Work in lab/incident-1/ and lab/answers/1-*.env, lab/postmortem-1.md; then ./verify.sh 1
-exit=0
+prepare-lab: converging profiles gw mock obs (mock-vllm A starts from lab/incident-2/mock-vllm-a)
