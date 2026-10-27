@@ -1,12 +1,38 @@
-prepare-lab: converging profiles gw mock obs (mock-vllm A starts from lab/incident-2/mock-vllm-a)
-prepare-lab: off-peak traffic with the previous flags (your 'before', ~40 s)
-prepare-lab: release 2026.10.26 is deployed, then the daily peak arrives
-PAGE 2 - 12:31 UTC  "Latency spikes at peak since yesterday's release"
-  TTFT p95 is a multiple of the SLO during the daily peak since yesterday's release. Off-peak is fine. GPU utilisation looks fine.
-  Your files: lab/incident-2/mock-vllm-a/args (the flags mock-vllm A starts with; gpu.yaml next to it is the GPU and is given).
-  Context: lab/incident-2/RELEASE-NOTES.md, lab/incident-2/PEAK.md. Direct engine: http://127.0.0.1:18021 (metrics, /admin/stats); gateway model "mock-a".
-  Restart the engine after editing args with the given lab/incident-2/restart.sh (the engine reads its flags only at start).
-  Incident window (UTC): 12:30:56 - 12:31:51  (epoch 1793104256 - 1793104311; Prometheus keeps the data)
+prepare-lab: stopping the compose stack (kind needs the RAM), then the kind cluster 'aiinfra' (cold start several minutes)
+k8s.sh: WARN fs.inotify.max_user_instances=128 (<512); if pods fail with 'too many open files': sudo sysctl fs.inotify.max_user_instances=512
+k8s.sh: creating kind cluster 'aiinfra' (kindest/node:v1.33.1, 1 control-plane + 2 workers)
+Creating cluster "aiinfra" ...
+ • Ensuring node image (kindest/node:v1.33.1) 🖼  ...
+ ✓ Ensuring node image (kindest/node:v1.33.1) 🖼
+ • Preparing nodes 📦 📦 📦   ...
+ ✓ Preparing nodes 📦 📦 📦 
+ • Writing configuration 📜  ...
+ ✓ Writing configuration 📜
+ • Starting control-plane 🕹️  ...
+ ✓ Starting control-plane 🕹️
+ • Installing CNI 🔌  ...
+ ✓ Installing CNI 🔌
+ • Installing StorageClass 💾  ...
+ ✓ Installing StorageClass 💾
+ • Joining worker nodes 🚜  ...
+ ✓ Joining worker nodes 🚜
+ • Waiting ≤ 5m0s for control-plane = Ready ⏳  ...
+ ✓ Waiting ≤ 5m0s for control-plane = Ready ⏳
+ • Ready after 9s 💚
+Set kubectl context to "kind-aiinfra"
+You can now use your cluster with:
 
-prepare-lab: incident 2 is live. Work in lab/incident-2/ and lab/answers/2-*.env, lab/postmortem-2.md; then ./verify.sh 2
+kubectl cluster-info --context kind-aiinfra
+
+Have a nice day! 👋
+k8s.sh: loading python:3.12-slim into kind
+k8s.sh: ready: aiinfra-control-plane=Ready aiinfra-worker=Ready aiinfra-worker2=Ready 
+prepare-lab: waiting for the scheduler to report the Pending pods
+PAGE 5 - 12:45 UTC  "The model pod is Pending after the node-pool change"
+  After this morning's node-pool change the model-serving pods are Pending; the new GPU pool was supposed to give us MORE GPUs than before.
+  Cluster: kubectl --context kind-aiinfra ...   Namespaces: serving (model), gpu-operator (device plugin + time-slicing config).
+  Your files in lab/incident-5/: model.yaml, device-plugin.yaml, time-slicing.yaml. Apply them yourself to experiment (verify applies them too).
+  Capacity is published by the simulated device plugin about every 3 s (lib/gpu_plugin_sim.py, given). Read what the scheduler says, fix, read it again.
+
+prepare-lab: incident 5 is live. Work in lab/incident-5/ and lab/answers/5-*.env, lab/postmortem-5.md; then ./verify.sh 5
 exit=0
