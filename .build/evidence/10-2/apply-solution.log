@@ -1,0 +1,3 @@
+restart: mock-vllm-a healthy
+apply-solution: incident 2 fixed and answered
+exit=0

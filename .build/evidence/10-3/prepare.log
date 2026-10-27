@@ -1,0 +1,6 @@
+prepare-lab: previous lab/incident-3 saved to lab.bak-prepare-20261027113253-3
+prepare-lab: converging profiles gw mock obs (healthy first; the fault is planted after a baseline)
+prepare-lab: 40 s of normal traffic (your 'before')
+prepare-lab: hardware fault on one GPU node; traffic continues (70 s)
+prepare-lab: ERROR the sick replica received no traffic: {"n": 83, "codes": {"200": 38, "404": 45}, "lat_max": 0.256, "lat_p95": 0.249}
+exit=1

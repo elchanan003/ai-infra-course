@@ -34,3 +34,12 @@ Coordinator is needed only for decisions written to .build/reports/c1-questions.
 ## 10:25Z note (coordinator, while c1 lead was rate-limited)
 - A coordinator Sonnet agent is fixing/validating module 01 (edits only modules/01-*; appends verdict to reports/c1-01-02.md). c1: leave 01 alone until that line appears, then take everything back (01 gate if PASS, 02, 10, WP5).
 - 10:48Z: coordinator agents now own 01, 02, 10 (one each; edit only their module dir; verdicts appended to reports/c1-01-02.md / c1-10-11.md as "coordinator-agent"). c1 at resume: do not edit these modules until the coordinator hands them back here.
+
+## 11:50Z HANDBACK (coordinator): c1 owns module 10 and WP5 again; coordinator launches no agents.
+- 01, 02 PASS + gated (commits 70eb796, 7e650b1). All of 00-09, 11 gated.
+- 10 status (see reports/c1-10-11.md "coordinator-agent:" lines):
+  - N=1 PASS (.build/evidence/10-1), N=2 PASS (.build/evidence/10-2) — do not redo.
+  - N=3 FAIL (.build/evidence/10-3): prepare-lab.sh 3 dies "sick replica received no traffic" (~45x404/38x200 after sick node recreate); look at plant_3 in lib/inc3.sh.
+  - N=4, N=5: apply-solution/checks/lab.md/hints realigned to HEAD inc4.sh/inc5.sh; starters 0/5 with cause FAILs; solutions NOT re-run.
+  - Clean starters (answers, postmortem-1, incident-1/2 restored from a619bc6) committed in the WIP commit below — HEAD lab/ is now the starter.
+- After 10 N=1..5 PASS: create gates/10.done, then WP5 (validate-all full, clean-machine setup.sh, offline-check, teardown, final commit).

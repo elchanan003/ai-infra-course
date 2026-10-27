@@ -1,2 +1,7 @@
-[PRE] Prometheus ready: ok
-[PRE] course Python venv: ok
+[BLOCKED] 3.1 incident '' is the planted one, not 3 - run ./prepare-lab.sh 3 (or ./verify.sh )
+[BLOCKED] 3.2 incident '' is the planted one, not 3 - run ./prepare-lab.sh 3 (or ./verify.sh )
+[BLOCKED] 3.3 incident '' is the planted one, not 3 - run ./prepare-lab.sh 3 (or ./verify.sh )
+[BLOCKED] 3.4 incident '' is the planted one, not 3 - run ./prepare-lab.sh 3 (or ./verify.sh )
+[BLOCKED] 3.5 incident '' is the planted one, not 3 - run ./prepare-lab.sh 3 (or ./verify.sh )
+SCORE: 0/5
+exit=1

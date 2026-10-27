@@ -1,0 +1,10 @@
+[PRE] Prometheus ready: ok
+[PRE] course Python venv: ok
+[PASS] 2.1 mock-vllm A restarts healthy from your args file, keeps the 4,096-token window, and admits only as many sequences as its KV cache holds at the peak length
+[PASS] 2.2 peak replay: all requests answered, 0 preemptions, KV cache under 95%, TTFT p95 within the SLO, gateway path healthy
+~ peak 22 concurrent: KV peak 77%, TTFT p95 7.5s (virtual), prefix hit ratio 0.72
+[PASS] 2.3 COMPONENT and CAUSE match the incident and the statement names the mechanism
+[PASS] 2.4 all evidence fields match the live data of this incident
+[PASS] 2.5 postmortem is complete: sections, UTC timeline, root cause with mechanism, mitigation vs fix, owned action items
+SCORE: 5/5
+exit=0

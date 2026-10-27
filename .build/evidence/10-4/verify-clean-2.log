@@ -1,0 +1,8 @@
+[PASS] C.1 no course containers left (stack down, no rollout containers)
+[PASS] C.2 no kind cluster
+[PASS] C.3 no kind node containers
+[PASS] C.4 scenario state removed
+[PASS] C.5 learner workspace lab/ intact
+[PASS] C.6 non-course containers untouched
+SCORE: 6/6
+exit=0

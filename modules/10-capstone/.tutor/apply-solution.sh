@@ -48,31 +48,32 @@ case "$N" in
   cp "$S/incident-3/litellm/config.yaml" "$LAB/incident-3/litellm/config.yaml"
   "$LAB/incident-3/restart.sh" || adie "restart failed" ;;
 4)
-  REV=$(vget 4 REV); snap=$(i4_snap "$LAB/incident-4/hf-cache" "$REV")
-  chk=$(cd "$snap" && sha256sum -c "$LAB/incident-4/MANIFEST.sha256" 2>&1)
+  snapd="$LAB/incident-4/hf-cache/models--aiinfra--capstone-tiny/snapshots/$(cat "$LAB/incident-4/hf-cache/models--aiinfra--capstone-tiny/refs/main")"
+  chk=$(cd "$snapd" && sha256sum -c "$LAB/incident-4/MANIFEST.sha256" 2>&1)
   missing=$(echo "$chk" | sed -n 's/^sha256sum: \(.*\): No such file.*/\1/p' | head -1); badf=$(echo "$chk" | sed -n 's/^\(.*\): FAILED$/\1/p' | head -1)
   [ -n "$missing" ] && [ -n "$badf" ] || adie "manifest check found no missing/corrupt file: $chk"
-  badsha=$(sha256sum "$snap/$badf" | cut -c1-12)
-  hh=$(curl -fsS --max-time 5 "$TRIPWIRE_URL/hits" | jq -r '(.hosts // .) | to_entries[] | select(.key | test("corp\\.internal")) | "\(.key) \(if (.value|type)=="object" then (.value.count // .value.hits // 0) else .value end)"' | head -1)
-  host=${hh% *}; hits=${hh#* }; [ -n "$host" ] || { host=$(tget 4 TRIPWIRE_HOST); hits=$(tget 4 TRIPWIRE_HITS); }
+  badsha=$(sha256sum "$snapd/$badf" | cut -c1-12)
+  host=$(tget 4 TRIPWIRE_HOST); hits=$(tripwire_hits "$host"); [ "${hits:-0}" -ge 1 ] || hits=$(tget 4 TRIPWIRE_HITS)
   printf 'MISSING_FILE=%s\nBAD_FILE=%s\nBAD_SHA=%s\nTRIPWIRE_HOST=%s\nTRIPWIRE_HITS=%s\n' "$missing" "$badf" "$badsha" "$host" "$hits" > "$A/4-evidence.env"
-  tmp=$(mktemp -d); oras pull --plain-http "$I4_REPO:$I4_TAG" -o "$tmp" >/dev/null 2>&1 || adie "oras pull failed"
-  cp -f "$tmp"/* "$snap/" && rm -rf "$tmp"
+  for f in "$missing" "$badf"; do   # re-fetch both files from the connected-side mirror (HF resolve API)
+    rm -f "$snapd/$f"; curl -fsS --max-time 30 "$HFMIRROR_URL/aiinfra/capstone-tiny/resolve/main/$f" -o "$snapd/$f" || adie "mirror download of $f failed"
+  done
   grep -q '^HF_HUB_OFFLINE=' "$LAB/incident-4/rollout.env" || cat "$S/incident-4/rollout.env.append" >> "$LAB/incident-4/rollout.env"
   chmod -R a+rX "$LAB/incident-4"
-  (cd "$snap" && sha256sum -c "$LAB/incident-4/MANIFEST.sha256" >/dev/null 2>&1) || adie "files still differ from the manifest" ;;
+  (cd "$snapd" && sha256sum -c "$LAB/incident-4/MANIFEST.sha256" >/dev/null 2>&1) || adie "files still differ from the manifest" ;;
 5)
-  V=$(vget 5 V); REPL=$(vget 5 REPL)
-  node=$(k get nodes -l "gpu-pool=pool-$V" -o jsonpath='{.items[0].metadata.name}')
+  V=$(vget 5 V); REPL=$(vget 5 REPL); node=$(vget 5 NODE)
   tk=$(k get node "$node" -o json | jq -r '.spec.taints[]? | select(.key | startswith("pool-")) | .key' | head -1)
-  wr=$(k get node "$node" -o json | jq -r '.status.allocatable | keys[] | select(startswith("nvidia")) | select(. != "nvidia.com/gpu")' | head -1)
-  i5_events | head -1 | grep -q 'untolerated taint' || adie "first scheduler reason is not the taint: $(i5_events | head -1)"
-  sed "s/@V@/$V/g" "$S/incident-5/model.yaml" > "$LAB/incident-5/model.yaml"        # step 1: toleration only
-  "$LAB/incident-5/apply.sh" >/dev/null || adie "apply.sh failed (step 1)"
+  ev() { k -n serving get events --field-selector reason=FailedScheduling -o json | jq -r '[.items[].message] | last // ""'; }
+  ev | grep -q 'untolerated taint' || adie "first scheduler reason is not the taint: $(ev)"
+  wr=$(grep -E '^\s*- name: ' "$LAB/incident-5/time-slicing.yaml" | head -1 | sed 's/.*name: *//')
+  sed "s/@V@/$V/g; s/@REPL@/$REPL/" "$S/incident-5/model.yaml" > "$LAB/incident-5/model.yaml"        # step 1: toleration on the Deployment only
+  k apply -f "$LAB/incident-5/model.yaml" >/dev/null || adie "apply failed (step 1)"
   retry 90 bash -c "kubectl --context kind-aiinfra -n serving get events --field-selector reason=FailedScheduling -o json | jq -r '.items[].message' | grep -q 'Insufficient nvidia.com/gpu'" || adie "second reason did not appear"
-  sed "s/@REPL@/$REPL/" "$S/incident-5/time-slicing.yaml" > "$LAB/incident-5/time-slicing.yaml"   # step 2: the resource name
-  "$LAB/incident-5/apply.sh" >/dev/null || adie "apply.sh failed (step 2)"
-  retry 120 i5_pod_ready || adie "pod not Ready after the fix"
+  sed "s/@V@/$V/g" "$S/incident-5/device-plugin.yaml" > "$LAB/incident-5/device-plugin.yaml"          # step 2: plugin pod must run on the new pool
+  cp "$S/incident-5/time-slicing.yaml" "$LAB/incident-5/time-slicing.yaml"                           #         and the exact resource name
+  k apply -f "$LAB/incident-5/time-slicing.yaml" -f "$LAB/incident-5/device-plugin.yaml" -f "$LAB/incident-5/model.yaml" >/dev/null || adie "apply failed (step 2)"
+  retry 150 bash -c "$PY $LIB/gpu_plugin_sim.py --once >/dev/null 2>&1; [ \"\$(kubectl --context kind-aiinfra -n serving get deploy model-serve -o jsonpath='{.status.readyReplicas}')\" = $REPL ]" || adie "pods not Ready after the fix"
   cap=$(k get node "$node" -o json | jq -r '.status.allocatable["nvidia.com/gpu"]')
   printf 'NODE_NAME=%s\nTAINT_KEY=%s\nWRONG_RESOURCE=%s\nFIRST_REASON=untolerated-taint\nSECOND_REASON=insufficient-gpu\nGPU_CAPACITY_AFTER=%s\n' "$node" "$tk" "$wr" "$cap" > "$A/5-evidence.env" ;;
 esac

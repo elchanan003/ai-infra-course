@@ -84,9 +84,9 @@ check_4() {
     v=$(ef 4 TRIPWIRE_HITS); t=$(tget 4 TRIPWIRE_HITS); { num "$v" && [ "${v%.*}" -ge 1 ] && [ "${v%.*}" -le $((3 * t + 3)) ]; } || bad+="TRIPWIRE_HITS, " ;;
   5)
     src="kubectl describe pod / describe node / get events in namespace serving, and your own two files"
-    v=$(ef 5 NODE_NAME); [ "$v" = "$(vget 5 NEW)" ] || bad+="NODE_NAME, "
+    v=$(ef 5 NODE_NAME); [ "$v" = "$(vget 5 NODE)" ] || bad+="NODE_NAME, "
     v=$(ef 5 TAINT_KEY); [ "$v" = "pool-$(vget 5 V)" ] || bad+="TAINT_KEY, "
-    v=$(ef 5 WRONG_RESOURCE); [ "$v" = "$(vget 5 WRONG)" ] || bad+="WRONG_RESOURCE, "
+    v=$(ef 5 WRONG_RESOURCE); [ "$v" = "nvidia.com/gpus" ] || bad+="WRONG_RESOURCE, "
     v=$(lc "$(ef 5 FIRST_REASON)"); [ "$v" = untolerated-taint ] || bad+="FIRST_REASON, "
     v=$(lc "$(ef 5 SECOND_REASON)"); [ "$v" = insufficient-gpu ] || bad+="SECOND_REASON, "
     live=$(k get node "$(vget 5 NEW)" -o json 2>/dev/null | jq -r '.status.allocatable["nvidia.com/gpu"] // empty')

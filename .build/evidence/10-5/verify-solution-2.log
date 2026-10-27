@@ -1,0 +1,10 @@
+[PRE] kind cluster aiinfra is up: ok
+[PRE] API server answers: ok
+[PRE] course Python venv: ok
+[FAIL] 5.1 after a clean re-apply of your files 0/5 model pods are Ready (device-plugin pods ready: 0). Scheduler: 0/3 nodes are available: 1 node(s) didn't match Pod's node affinity/selector, 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }, 1 node(s) had untolerated taint {pool-ab5fce: gpu}. preemption: 0/3 nodes are
+[BLOCKED] 5.2 needs 5.1
+[FAIL] 5.3 lab/answers/5-rootcause.env: COMPONENT and CAUSE still hold the template placeholders - pick one value from each list in lab.md
+[FAIL] 5.4 lab/answers/5-evidence.env still has empty or template (<...>) fields - every value must come from the live signals (kubectl describe pod / describe node / get events in namespace serving, and your own two files)
+[FAIL] 5.5 lab/postmortem-5.md: section 'Summary' needs at least 15 words of your own (has 0)
+SCORE: 0/5
+exit=1

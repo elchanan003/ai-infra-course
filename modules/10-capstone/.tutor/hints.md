@@ -62,9 +62,9 @@ Task ids: `incN-find` (cause), `incN-fix` (N.1/N.2), `incN-evid` (N.4), `pm` (N.
 - H4: tokenizer.json missing, one shard flipped byte; `HF_HUB_OFFLINE` unset. artifact / artifact-integrity; the lookups are the contributing air-gap factor.
 ### inc4-fix
 - H1: Fix both: the files and the posture. Then prove the posture with an incomplete artifact.
-- H2: The release is an OCI artifact in the course registry (`oras pull --plain-http`). Offline mode is a policy; the tripwire proves it.
-- H3: Pull to a scratch dir, copy over the snapshot, re-run the manifest check; add `HF_HUB_OFFLINE=1` to `rollout.env`; re-run `rollout.sh`, then test with a tokenizer removed on a copy.
-- H4: `oras pull --plain-http 127.0.0.1:18050/cap4/rollout:release-2026-10 -o /tmp/x; cp /tmp/x/* <snapshot>/`; `echo HF_HUB_OFFLINE=1 >> rollout.env`.
+- H2: The connected side's copy is served by the course HF mirror (`http://127.0.0.1:18071`, HF `resolve` API). Offline mode is a policy; the tripwire proves it.
+- H3: Download the two files from the mirror, put them into the snapshot, re-run the manifest check; add `HF_HUB_OFFLINE=1` to `rollout.env`; re-run `rollout.sh`, then test with a tokenizer removed on a copy.
+- H4: `curl -fsS http://127.0.0.1:18071/aiinfra/capstone-tiny/resolve/main/<file> -o <snapshot>/<file>` (remove the old file/symlink first); `echo HF_HUB_OFFLINE=1 >> rollout.env`.
 ### inc4-evid
 - H1: Capture the corrupt file's checksum before replacing it.
 - H2: `sha256sum` of the failing shard (first 12 hex); `GET /hits` lists the name and the count.
@@ -76,12 +76,12 @@ Task ids: `incN-find` (cause), `incN-fix` (N.1/N.2), `incN-evid` (N.4), `pm` (N.
 - H1: Read the scheduler's sentence word by word; each clause is about one node.
 - H2: Taint vs toleration vs nodeSelector; then extended-resource capacity on the node.
 - H3: After the toleration the reason changes; then compare `describe node` Capacity with what the ConfigMap advertises.
-- H4: Toleration for `pool-<id>=gpu:NoSchedule` missing; time-slicing entry names a resource other than `nvidia.com/gpu`, so allocatable is 0. kubernetes / scheduling-config.
+- H4: Toleration for `pool-<id>=gpu:NoSchedule` missing on the model Deployment AND on the device-plugin DaemonSet (no plugin pod on the node, so no GPU capacity); time-slicing entry names `nvidia.com/gpus`, which the plugin ignores. kubernetes / scheduling-config.
 ### inc5-fix
-- H1: Fix, re-apply with `apply.sh`, read again.
+- H1: Fix, re-apply with `kubectl apply -f`, read again.
 - H2: Both files are the source of truth; a node patched by hand is gone at the next clean redeploy.
-- H3: `tolerations` entry with key, operator, value, effect matching the node; exact resource name in the ConfigMap.
-- H4: `tolerations: [{key: pool-<id>, operator: Equal, value: gpu, effect: NoSchedule}]`; `- name: nvidia.com/gpu`.
+- H3: `tolerations` entry with key, operator, value, effect matching the node, in both workloads that must run on that node; exact resource name in the ConfigMap.
+- H4: `tolerations: [{key: pool-<id>, operator: Equal, value: gpu, effect: NoSchedule}]`; `- name: nvidia.com/gpu`; the same toleration under the DaemonSet's pod spec.
 ### inc5-evid
 - H1: All six values are visible with kubectl.
 - H2: `describe node`: Taints, Allocatable (the odd extended resource); `get events`: the two FailedScheduling messages in order.

@@ -1,0 +1,23 @@
+# Device-plugin stand-in (reference solution): the DaemonSet tolerates the new pool's taint, so a plugin pod runs on the node.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nvidia-device-plugin-sim
+  namespace: gpu-operator
+  labels: {course: aiinfra, app: nvidia-device-plugin-sim}
+spec:
+  selector: {matchLabels: {app: nvidia-device-plugin-sim}}
+  template:
+    metadata:
+      labels: {course: aiinfra, app: nvidia-device-plugin-sim}
+    spec:
+      terminationGracePeriodSeconds: 1
+      nodeSelector:
+        nvidia.com/gpu.deploy.device-plugin: "true"
+      tolerations:
+        - {key: pool-@V@, operator: Equal, value: gpu, effect: NoSchedule}
+      containers:
+        - name: plugin
+          image: python:3.12-slim
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "3600"]

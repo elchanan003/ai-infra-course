@@ -394,7 +394,7 @@ plugin's behaviour for unknown names differs by version). The Kubernetes schedul
 - Incidents 1-3 run on the compose stack (`gw`, `gw2`, `mock`, `obs`), incident 4 on `store` plus a throw-away
   engine container on the air-gapped network, incident 5 on `kind` (compose is stopped). `prepare-lab.sh`
   converges the stack, so earlier incidents' containers are replaced.
-- You investigate with the signals, fix the files, restart with the given helper (`restart.sh`, `apply.sh`,
+- You investigate with the signals, fix the files, restart with the given helper (`restart.sh`,
   `apply-keys.sh`, `rollout.sh` inside `lab/incident-N/`), fill `lab/answers/N-*.env` and
   `lab/postmortem-N.md`, then run `./verify.sh N`.
 - `verify.sh` re-creates the situation itself: it restores the GIVEN files, restarts the affected components

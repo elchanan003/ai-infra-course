@@ -1,0 +1,10 @@
+[PRE] tripwire reachable: ok
+[PRE] registry reachable: ok
+[PRE] course Python venv: ok
+[FAIL] 4.1 2 file(s) of the model snapshot do not match MANIFEST.sha256 (missing, corrupt or extra); rollout.sh failed: (EngineCore pid=38) ERROR [core.py:1433] OSError: Can't load tokenizer for 'aiinfra/capstone-tiny'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'aiinfra/capstone-tiny' is the correct path to a; the rollout made 2 DNS lookup(s) outside the air gap (tripwire /hits: {"hub-c2de0e.models.corp.example": 2}) - does the loader know it must not reach for a network? (theory 3.6)
+[BLOCKED] 4.2 needs 4.1
+[FAIL] 4.3 lab/answers/4-rootcause.env: COMPONENT and CAUSE still hold the template placeholders - pick one value from each list in lab.md
+[FAIL] 4.4 lab/answers/4-evidence.env still has empty or template (<...>) fields - every value must come from the live signals (sha256sum -c MANIFEST.sha256 on the snapshot as you found it, the tripwire /hits counter, and rollout.env)
+[FAIL] 4.5 lab/postmortem-4.md: section 'Summary' needs at least 15 words of your own (has 0)
+SCORE: 0/5
+exit=1

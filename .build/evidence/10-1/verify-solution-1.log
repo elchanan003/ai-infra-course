@@ -1,0 +1,10 @@
+[PRE] Prometheus ready: ok
+[PRE] course Python venv: ok
+[PASS] 1.1 a key limit of 3 holds across both replicas after a restart with your config and keys.yaml
+[PASS] 1.2 agent flood is capped inside the team quota, chat keeps its share (8/8 x 200), no 5xx, engine TTFT within the SLO
+~ agent 21 x 200 / 17 x 429 (cap 24), TTFT p95 0.04s (virtual)
+[PASS] 1.3 COMPONENT and CAUSE match the incident and the statement names the mechanism
+[PASS] 1.4 all evidence fields match the live data of this incident
+[PASS] 1.5 postmortem is complete: sections, UTC timeline, root cause with mechanism, mitigation vs fix, owned action items
+SCORE: 5/5
+exit=0

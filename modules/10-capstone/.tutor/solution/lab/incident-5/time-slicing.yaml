@@ -1,4 +1,4 @@
-# GPU time-slicing configuration (reference solution): the resource name must be exactly nvidia.com/gpu.
+# Time-slicing config (reference solution): the resource name must be exactly nvidia.com/gpu.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -14,4 +14,4 @@ data:
       timeSlicing:
         resources:
           - name: nvidia.com/gpu
-            replicas: @REPL@
+            replicas: 2

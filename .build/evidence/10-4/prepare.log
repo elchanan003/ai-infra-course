@@ -1,0 +1,11 @@
+prepare-lab: converging profile store (tripwire, hf-mirror, registry, S3)
+prepare-lab: the rollout is attempted on the air-gapped network (can take up to 90 s)
+PAGE 4 - 11:15 UTC  "The new model rollout will not start"
+  The rollout of model aiinfra/capstone-tiny to the air-gapped serving network hangs for a while and then fails. Separately, the network team
+  noticed DNS lookups from the serving subnet that should never happen there.
+  Your files in lab/incident-4/: rollout.env (environment of the rollout container) and hf-cache/ (the model files the container mounts).
+  Given: rollout.sh (run it), MANIFEST.sha256 (hashes made on the connected side), README. Mirror for re-fetching: http://127.0.0.1:18071.
+  Tripwire (DNS query log of the air-gapped network): http://127.0.0.1:18072/hits
+
+prepare-lab: incident 4 is live. Work in lab/incident-4/ and lab/answers/4-*.env, lab/postmortem-4.md; then ./verify.sh 4
+exit=0

@@ -1,3 +1,2 @@
-restart: mock-vllm-a healthy
-apply-solution: incident 2 fixed and answered
-exit=0
+apply-solution: no incident planted (usage: apply-solution.sh [1-5])
+exit=2

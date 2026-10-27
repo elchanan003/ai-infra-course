@@ -8,7 +8,7 @@ You get a page, not a hint. Use every signal: gateway metrics, engine metrics, D
 You are on call for the internal AI platform: clients (chat users and coding agents) call the
 **LiteLLM gateway** (port 18040, second replica 18041 in incident 1), which routes to **two serving replicas**
 (`mock-vllm` A and B, simulated vLLM) on two simulated GPU nodes (`mock-dcgm`). Prometheus (18090) scrapes everything
-every 5 s; Grafana is on 18030. Models arrive through an internal registry; the serving network is air-gapped.
+every 5 s; Grafana is on 18030. Models arrive through an internal HF mirror; the serving network is air-gapped.
 Incident 5 runs on a `kind` cluster with simulated GPU nodes.
 
 For each incident you must: find the cause, fix it **in the source of truth** so it survives a restart,
@@ -33,7 +33,7 @@ Incidents are independent; preparing one replaces the infrastructure of another.
 | mock-vllm A / B | http://127.0.0.1:18021 / :18022 (`/metrics`, `/health`, `/admin/stats`) |
 | mock-dcgm node A / B | http://127.0.0.1:18031 / :18032 (`/metrics`) |
 | Prometheus / Grafana | http://127.0.0.1:18090 / http://127.0.0.1:18030 |
-| Tripwire hits, registry | `GET http://127.0.0.1:18072/hits`; registry `127.0.0.1:18050` (incident 4) |
+| Tripwire hits, HF mirror | `GET http://127.0.0.1:18072/hits`; hf-mirror `http://127.0.0.1:18071` (incident 4) |
 | Cluster (incident 5) | `kubectl --context kind-aiinfra ...` |
 | Source of truth | `lab/incident-N/` (what each incident re-applies on restart) |
 
@@ -45,7 +45,7 @@ Replace "127.0.0.1" with the Tailscale address for UIs when you are remote. Modu
 |---|---|
 | files in `lab/incident-N/` that the page names as "yours" (configs, args, key policy, env files, manifests, the model cache of incident 4) | yours - fix them |
 | `lab/answers/*`, `lab/postmortem-*.md` | yours - fill in |
-| `lab/incident-N/restart.sh`, `apply.sh`, `apply-keys.sh`, `rollout.sh`, `MANIFEST.sha256`, `gpu.yaml`, `RELEASE-NOTES.md`, `PEAK.md`, `keys.env` | GIVEN - read them, do not edit (verify restores them) |
+| `lab/incident-N/restart.sh`, `apply-keys.sh`, `rollout.sh`, `MANIFEST.sha256`, `gpu.yaml`, `RELEASE-NOTES.md`, `PEAK.md`, `keys.env` | GIVEN - read them, do not edit (verify restores them) |
 | live admin-API changes, `docker exec`, hand-patched nodes | allowed for investigation or mitigation, **never counted as a fix** |
 | `platform/`, `mock/`, `lib/`, module scripts, the monitoring stack | given - do not modify |
 
@@ -103,7 +103,7 @@ six words that names the mechanism (what was configured how, and why users were 
 | 2 serving | engine A restarts healthy from your args and still serves the 4,096-token window | replay of the daily peak: all 200, 0 preemptions, KV peak under 95 %, TTFT p95 within the SLO, gateway path healthy | `KV_PEAK`, `PREEMPTIONS`, `PEAK_WAITING`, `PLANTED_MAX_NUM_SEQS` |
 | 3 gpu + router | with the hardware fault re-asserted, the failing replica serves at most a few of 40 requests, and takes traffic again after a cooldown once healthy | 40 of 40 user requests answered, none waits as long as the sick replica stalls | `AFFECTED_NODE`, `XID_CODE`, `GPU_UUID`, `DRAIN_DECISION`, `TEMP_C` |
 | 4 artifact | every snapshot file matches `MANIFEST.sha256` and `rollout.sh` serves a completion inside `aiinfra-airgap` | zero DNS lookups from the air-gapped network, and an incomplete artifact fails closed without touching the network | `MISSING_FILE`, `BAD_FILE`, `BAD_SHA`, `TRIPWIRE_HOST`, `TRIPWIRE_HITS` |
-| 5 kubernetes | after a clean redeploy from your two files (no leftover objects, no hand-patched capacity) the model pod is Ready on the new pool | a second GPU pod runs, a pod asking for more GPUs than advertised stays Pending with `Insufficient nvidia.com/gpu` | `NODE_NAME`, `TAINT_KEY`, `WRONG_RESOURCE`, `FIRST_REASON`, `SECOND_REASON`, `GPU_CAPACITY_AFTER` |
+| 5 kubernetes | after a clean redeploy from your three files (no leftover objects, no hand-patched capacity) the model pod is Ready on the new pool | a second GPU pod runs, a pod asking for more GPUs than advertised stays Pending with `Insufficient nvidia.com/gpu` | `NODE_NAME`, `TAINT_KEY`, `WRONG_RESOURCE`, `FIRST_REASON`, `SECOND_REASON`, `GPU_CAPACITY_AFTER` |
 
 Template files for all answers and postmortems are shipped in `lab/`; the field names are the table above.
 
@@ -151,17 +151,17 @@ Success: 3.1-3.5.
 1. Run `lab/incident-4/rollout.sh` and read what it says. Check the tripwire counter before and after.
 2. Check the artifact before you trust it: verify every file against the manifest from the connected side. Capture what you find **before** you replace anything (the corrupt file's checksum is evidence).
 3. Ask whether the rollout stayed inside the air gap. Which setting turns a slow, networked failure into a fast, local one - and what does it not fix?
-4. Fix everything that is wrong, not only the first thing: restore the artifact (the release is in the registry) and the environment. Prove it twice: the engine serves, and an incomplete artifact still fails closed without a single lookup.
+4. Fix everything that is wrong, not only the first thing: restore the artifact (the connected side's copy is served by the HF mirror) and the environment. Prove it twice: the engine serves, and an incomplete artifact still fails closed without a single lookup.
 5. Evidence, answers, postmortem.
 
 Success: 4.1-4.5.
 
 ## Incident 5 - "The model pod is Pending after the node-pool change" (~50 min)
 
-`./prepare-lab.sh 5` (stops the compose stack, builds the `kind` cluster on first run - several minutes - then plants the incident). Files: `lab/incident-5/model.yaml`, `time-slicing.yaml`; deploy with the given `apply.sh`.
+`./prepare-lab.sh 5` (stops the compose stack, builds the `kind` cluster on first run - several minutes - then plants the incident). Files: `lab/incident-5/model.yaml`, `device-plugin.yaml`, `time-slicing.yaml`; apply them yourself with `kubectl --context kind-aiinfra apply -f` (verify applies all three too).
 
 1. Read what the scheduler says (`describe pod`, events), then what the nodes offer (`describe node`: taints, labels, Capacity/Allocatable).
-2. Fix, redeploy with `apply.sh`, read the event again: reasons stack, a fixed one reveals the next.
+2. Fix, re-apply, read the event again: reasons stack, a fixed one reveals the next.
 3. Be ready to explain why patching the node by hand would not have been a fix, and what time-slicing does and does not give you.
 4. Evidence, answers, postmortem.
 
@@ -172,7 +172,7 @@ Success: 5.1-5.5.
 ## Done
 
 - `./verify.sh --status` shows 5/5 for every incident.
-- `./cleanup.sh && ./verify-clean.sh` (twice) when you finish the module; this removes the rollout containers, lab key/team, registry artifact, the compose stack and the `kind` cluster.
+- `./cleanup.sh && ./verify-clean.sh` (twice) when you finish the module; this removes the rollout containers, lab key/team, the compose stack and the `kind` cluster.
 
 ## Reflection (discuss with the tutor)
 

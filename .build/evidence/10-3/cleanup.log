@@ -1,0 +1,2 @@
+cleanup: rollout containers, lab key/team, registry artifact, kind cluster and compose stack removed; scenario state cleared
+exit=0

@@ -1,0 +1,2 @@
+apply-solution: no incident planted (usage: apply-solution.sh [1-5])
+exit=2

@@ -1,0 +1,17 @@
+/home/student/ai-infra-course/modules/10-capstone/.tutor/apply-solution.sh: line 51: i4_snap: command not found
+apply-solution: manifest check found no missing/corrupt file: sha256sum: config.json: No such file or directory
+config.json: FAILED open or read
+sha256sum: model-00001-of-00003.safetensors: No such file or directory
+model-00001-of-00003.safetensors: FAILED open or read
+sha256sum: model-00002-of-00003.safetensors: No such file or directory
+model-00002-of-00003.safetensors: FAILED open or read
+sha256sum: model-00003-of-00003.safetensors: No such file or directory
+model-00003-of-00003.safetensors: FAILED open or read
+sha256sum: model.safetensors.index.json: No such file or directory
+model.safetensors.index.json: FAILED open or read
+sha256sum: tokenizer.json: No such file or directory
+tokenizer.json: FAILED open or read
+sha256sum: tokenizer_config.json: No such file or directory
+tokenizer_config.json: FAILED open or read
+sha256sum: WARNING: 7 listed files could not be read
+exit=1

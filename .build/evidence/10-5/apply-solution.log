@@ -1,0 +1,13 @@
+error: error executing jsonpath "{.items[0].metadata.name}": Error executing template: array index out of bounds: index 0, length 0. Printing more information for debugging the template:
+	template was:
+		{.items[0].metadata.name}
+	object given to jsonpath engine was:
+		map[string]interface {}{"apiVersion":"v1", "items":[]interface {}{}, "kind":"List", "metadata":map[string]interface {}{"resourceVersion":""}}
+
+
+error: resource name may not be empty
+error: resource name may not be empty
+/home/student/ai-infra-course/modules/10-capstone/.tutor/apply-solution.sh: line 69: i5_events: command not found
+/home/student/ai-infra-course/modules/10-capstone/.tutor/apply-solution.sh: line 69: i5_events: command not found
+apply-solution: first scheduler reason is not the taint: 
+exit=1
