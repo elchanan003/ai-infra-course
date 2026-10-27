@@ -86,7 +86,7 @@ Concept: theory 4.
 
 `lab/variant/models.txt` names the GGUF pair for your variant (`Q4=` and `Q8=` file names in `~/.cache/aiinfra-course/models/`; chat or coder 0.5B).
 1. Exact file sizes in bytes (`stat`).
-2. Start each with `run-llama.sh` and read the load log (`docker logs`): file type (`ftype`), the tensor type counts (which of q4_K / q6_K / q8_0 / f32), and the reported bits per weight.
+2. Start each with `run-llama.sh` and read the load log (`docker logs`; the per-tensor `llama_model_loader`/`print_info` lines need `-lv 4`, which `run-llama.sh` already passes): file type (`ftype`), the tensor type counts (which of q4_K / q6_K / q8_0 / f32), and the reported bits per weight.
 3. Measure prompt-processing speed for both with a long prompt and `cache_prompt: false` (use `llamacpp:prompt_tokens_seconds` or Δ`prompt_tokens_total`/Δ`prompt_seconds_total`), and note resident memory (`docker stats --no-stream`).
 4. Fill `lab/answers/quant.json` (template has all keys) including `why_q8_prompt_faster` (enum) and `evidence_bpw_q4`, `evidence_bpw_q8` from your own logs.
 

@@ -1,1 +1,1 @@
-01 FAIL starter=0/23 solution=21/23,21/23,21/23 identical=no clean=yes
+01 PASS starter=0/23 solution=23/23,23/23,23/23 identical=yes clean=yes

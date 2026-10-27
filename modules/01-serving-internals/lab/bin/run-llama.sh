@@ -12,6 +12,6 @@ docker rm -f "$NAME" >/dev/null 2>&1
 CTX="$(get CTX)"; PARALLEL="$(get PARALLEL)"; THREADS="$(get THREADS)"; MODEL="$(get MODEL)"
 docker run -d --name "$NAME" --label course=aiinfra --label module=01 -p "127.0.0.1:$PORT:8080" \
   -v "${AIINFRA_CACHE:-$HOME/.cache/aiinfra-course}/models:/models:ro" "$LLAMACPP_IMAGE" \
-  -m "/models/$MODEL" --host 0.0.0.0 --port 8080 --metrics -c "$CTX" -np "$PARALLEL" -t "$THREADS" >/dev/null || exit 1
+  -m "/models/$MODEL" --host 0.0.0.0 --port 8080 --metrics -c "$CTX" -np "$PARALLEL" -t "$THREADS" -lv 4 >/dev/null || exit 1
 wait_http "http://127.0.0.1:$PORT/health" 60 && echo "run-llama: $NAME ready on 127.0.0.1:$PORT (ctx=$CTX parallel=$PARALLEL threads=$THREADS model=$MODEL)" \
   || { echo "run-llama: server did not become healthy: docker logs $NAME"; exit 1; }

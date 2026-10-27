@@ -22,7 +22,7 @@
 - 1.2 `vram.env`: values computed for the variant model/GPU with the same formulas (±2%).
 - 1.3 `llama.env`: `PARALLEL=4`, `CTX=8192` (or ≥ 4 x 2048 total on classic layout); the throughput ratio parallel4/parallel1 well above 1 (typically 1.5-3x); explanation enum: continuous batching amortises weight reads.
 - 1.4 `prompt_template.py`: volatile fields (time, request id, user question) after the stable prefix; second request's `cached_tokens` ≥ ~80% of prefix tokens.
-- 1.5 `quant.json`: exact file sizes of the variant model pair in bytes; `ftype` strings and tensor types from the load log (Q4_K_M: q4_K + q6_K + f32; Q8_0: q8_0 + f32); BPW from the log; prompt-eval ratio Q8/Q4 > 1.5; the reason enum "kernel/ISA".
+- 1.5 `quant.json`: exact file sizes of the variant model pair in bytes; `ftype` strings and tensor types from the load log (sets come from the load log of the variant's files at `-lv 4`; e.g. Q4_K_M typically mixes q4_K, q6_K and f32 and may include others such as q5_0/q8_0 - use the log, not memory); BPW from the log; prompt-eval ratio Q8/Q4 > 1.5; the reason enum "kernel/ISA".
 - 1.6 `tp.json`: per variant: min TP for the 70B-class variant on the given GPU, and the smallest MIG profile for the small variant (table in theory 6.4).
 - 1.7 (planted) `team_calc.py` bugs: (a) uses `num_attention_heads` instead of `num_key_value_heads`; (b) divides by `1000**3` for weights but `1024**3` for KV (GB/GiB mix); (c) forgets to divide KV by TP. Fixed version matches the reference within 2%.
 

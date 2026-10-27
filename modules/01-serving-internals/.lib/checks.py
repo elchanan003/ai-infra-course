@@ -251,7 +251,7 @@ def cmd_quant(answers, truthfile):
     if rv is None: out("FAIL", "1.5.3", "verify could not measure a stable ratio (host busy?) - rerun when idle"); 
     else:
         ok = isinstance(r, (int, float)) and r > 1.5 and rv / 1.6 <= r <= rv * 1.6
-        out("PASS" if ok else "FAIL", "1.5.3", f"ratio {r} consistent with the measured {rv:.2f}" if ok else f"prompt_eval_ratio_q8_over_q4 must be above 1.5 and within a factor 1.6 of verify's own measurement (measure prompt processing with a long prompt and cache_prompt=false, not generation)")
+        out("PASS" if ok else "FAIL", "1.5.3", "ratio consistent with verify's own measurement" if ok else f"prompt_eval_ratio_q8_over_q4 must be above 1.5 and within a factor 1.6 of verify's own measurement (measure prompt processing with a long prompt and cache_prompt=false, not generation)")
     ok = a.get("why_q8_prompt_faster") == "q8_simple_int8_blocks_map_to_dotprod_kernels" and close(a.get("bpw_q4"), t["q4"]["bpw"], 0.01) and close(a.get("bpw_q8"), t["q8"]["bpw"], 0.01)
     out("PASS" if ok else "FAIL", "1.5.4", "enum right and BPW evidence matches the variant files" if ok else "why_q8_prompt_faster is wrong or bpw_q4/bpw_q8 do not match the load logs of your variant's files (the enum only counts together with the evidence)")
 
