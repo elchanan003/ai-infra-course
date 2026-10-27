@@ -1,10 +1,10 @@
 [PASS] C.1 no course containers left
 [PASS] C.2 no course networks left
 [PASS] C.3 store data volumes removed (S3 objects, registry content)
-[FAIL] C.4 local registry tags remain: localhost:18050/aiinfra/llama:<none> 
+[PASS] C.4 no local tags for the internal registry
 [PASS] C.5 synthetic repo removed from the mirror cache
 [PASS] C.6 course images untouched (ghcr.io/ggml-org/llama.cpp:server-b11889 present)
 [PASS] C.7 lab/ workspace intact
 [PASS] C.8 variant assignment kept
-SCORE: 7/8
-exit=1
+SCORE: 8/8
+exit=0

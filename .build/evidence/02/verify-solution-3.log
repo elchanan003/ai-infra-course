@@ -17,10 +17,10 @@
 [PRE] control run (no offline settings) trips the wire: ok
 [PASS] 2.4.3 the loader started from your cache with your offline.env and the tripwire stayed silent (control run: 8 hits)
 [PASS] 2.5.1 IMAGE_DIGEST is the registry's manifest digest of aiinfra/llama:server-b11889
-[FAIL] 2.5.2 no running course container uses the image reference localhost:18050/aiinfra/llama@<IMAGE_DIGEST> (tags are mutable; run by digest, label it course=aiinfra)
+[PASS] 2.5.2 a running course container was created from localhost:18050/aiinfra/llama@<digest>
 [PASS] 2.5.3 oras pull of the recorded artifact yields your variant's GGUF (sha256 74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db), media types as specified
-[FAIL] 2.6.1 incident.json: the missing list or the corrupt entry (file, expected sha from SHA256SUMS, actual sha of the damaged file as it arrived) is wrong - compare the bundle with its manifest and check completeness, not only hashes
-[FAIL] 2.6.2 bundle still fails its manifest: sha256sum: SHA256SUMS: No such file or directory
+[PASS] 2.6.1 incident.json names the missing and the corrupt file with the right hashes
+[PASS] 2.6.2 every file matches SHA256SUMS and no good file was re-downloaded
 [PASS] 2.6.3 the repaired bundle loads: tokenizer present, index and shards consistent, headers parse, hashes match
-SCORE: 16/19
-exit=1
+SCORE: 19/19
+exit=0

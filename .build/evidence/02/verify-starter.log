@@ -20,7 +20,7 @@
 [FAIL] 2.5.2 no running course container uses the image reference localhost:18050/aiinfra/llama@<IMAGE_DIGEST> (tags are mutable; run by digest, label it course=aiinfra)
 [FAIL] 2.5.3 the artifact aiinfra/models/gguf@ARTIFACT_DIGEST is missing, has the wrong artifactType/layer mediaType, or its file hash is not GGUF_SHA256 = the sha256 of qwen2.5-0.5b-instruct-q4_k_m.gguf
 [FAIL] 2.6.1 incident.json: the missing list or the corrupt entry (file, expected sha from SHA256SUMS, actual sha of the damaged file as it arrived) is wrong - compare the bundle with its manifest and check completeness, not only hashes
-[FAIL] 2.6.2 bundle still fails its manifest: sha256sum: SHA256SUMS: No such file or directory
-[FAIL] 2.6.3 the bundle does not load: OSError: /bundle does not appear to have a file named config.json. Checkout the model repo or pass a local path containing config.json.
+[FAIL] 2.6.2 bundle still fails its manifest: model-00005-of-00005.safetensors: FAILED
+[FAIL] 2.6.3 the bundle does not load: OSError: Can't load tokenizer for '/bundle'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure '/b
 SCORE: 0/19
 exit=1

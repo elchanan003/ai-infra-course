@@ -10,7 +10,10 @@ docker ps -aq --filter label=course=aiinfra | while read -r c; do   # containers
   case "$(docker inspect -f '{{.Config.Image}}' "$c" 2>/dev/null)" in localhost:18050/aiinfra/*) docker rm -f "$c" >/dev/null 2>&1;; esac
 done
 "$PLATFORM_DIR/stack.sh" down >/dev/null 2>&1
-for ref in $(docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep '^localhost:18050/aiinfra/' | grep -v ':<none>'); do docker rmi "$ref" >/dev/null 2>&1; done
+docker image ls --digests --format '{{.Repository}} {{.Tag}} {{.Digest}}' 2>/dev/null | grep '^localhost:18050/aiinfra/' | while read -r repo tag dig; do
+  [ "$tag" != "<none>" ] && docker rmi "$repo:$tag" >/dev/null 2>&1
+  docker rmi "$repo@$dig" >/dev/null 2>&1   # untagged leftovers show tag <none>
+done
 for v in aiinfra_seaweedfs-data aiinfra_registry-data; do
   docker volume ls -q --filter label=course=aiinfra --filter "name=^${v}\$" | xargs -r docker volume rm >/dev/null 2>&1
 done

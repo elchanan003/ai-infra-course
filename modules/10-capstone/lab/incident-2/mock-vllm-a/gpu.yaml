@@ -1,5 +1,0 @@
-# GIVEN - the simulated GPU of replica A (do not edit; verify restores it). Another process on the node holds 5.0 GiB.
-name: A10G
-memory_gib: 24
-count: 1
-other_process_gib: 5.0

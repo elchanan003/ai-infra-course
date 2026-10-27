@@ -7,7 +7,7 @@ source "$MODULE_DIR/../../platform/lib.sh"
 LAB="$MODULE_DIR/lab"; STATE="$MODULE_DIR/.state"; CK="$MODULE_DIR/.lib/checks.py"
 PY="$PLATFORM_DIR/.venv/bin/python"; CACHE="${AIINFRA_CACHE:-$HOME/.cache/aiinfra-course}"
 TMP="$(mktemp -d)"
-cleanup_v() { docker ps -aq --filter name=aiinfra-lab02- | xargs -r docker rm -f >/dev/null 2>&1; rm -rf "$TMP"; }
+cleanup_v() { docker rm -f aiinfra-lab02-serve aiinfra-lab02-ctrl aiinfra-lab02-probe aiinfra-lab02-bundle >/dev/null 2>&1; rm -rf "$TMP"; }
 trap cleanup_v EXIT
 ALL=(2.1.1 2.1.2 2.1.3 2.2.1 2.2.2 2.2.3 2.2.4 2.3.1 2.3.2 2.3.3 2.4.1 2.4.2 2.4.3 2.5.1 2.5.2 2.5.3 2.6.1 2.6.2 2.6.3)
 emit() { local st id msg; while read -r st id msg; do case "$st" in PASS) pass "$id" "$msg";; FAIL) fail "$id" "$msg";; BLOCKED) blocked "$id" "$msg";; esac; done; }

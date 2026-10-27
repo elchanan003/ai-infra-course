@@ -1,5 +1,4 @@
 [90mHint: The `hf-cli` skill is not installed. Run `hf skills add -g` to teach your AI agents how to use the `hf` CLI.[0m
-Fetching 11 files:   0%|          | 0/11 [00:00<?, ?it/s]Fetching 11 files:  27%|██▋       | 3/11 [00:00<00:00, 25.61it/s]Fetching 11 files: 100%|██████████| 11/11 [00:00<00:00, 76.30it/s]
-/home/student/ai-infra-course/modules/02-weights-airgap/.tutor/solve-answers.sh: line 45: SHA256SUMS: No such file or directory
-apply-solution: lab/ replaced (backup: lab.bak-20261027-075716), downloads/answers/registry/bundle repair done
+Fetching 11 files:   0%|          | 0/11 [00:00<?, ?it/s]Fetching 11 files: 100%|██████████| 11/11 [00:00<00:00, 111.60it/s]
+apply-solution: lab/ replaced (backup: lab.bak-20261027-105934), downloads/answers/registry/bundle repair done
 exit=0

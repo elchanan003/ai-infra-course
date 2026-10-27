@@ -30,10 +30,10 @@ serving = {k: fx.sha256(b) for k, b in files.items() if k.endswith(fx.SERVE_PATT
 truth = dict(repo=repo, commit=v["commit"], serving=serving, decoys=["pytorch_model.bin", "onnx/model.onnx", "README.md"], **meta)
 json.dump(truth, open(st + "/truth.json", "w"), indent=1)
 open(lab + "/REPOS.env", "w").write("REPO=%s\nCOMMIT=%s\nGGUF_FILE=%s\n" % (repo, v["commit"], v["gguf"]))
-if not os.path.isdir(lab + "/pickles") or not os.listdir(lab + "/pickles"):
+if not os.path.isdir(lab + "/pickles") or len([f for f in os.listdir(lab + "/pickles") if not f.startswith(".")]) < 5:
     pt = fx.make_pickles(lab + "/pickles", v["canary"], random.Random(v["seed"] + 1))
     json.dump(pt, open(st + "/pickles.json", "w"), indent=1)
-if not os.path.isdir(lab + "/incoming") or not os.listdir(lab + "/incoming"):
+if not os.path.isfile(lab + "/incoming/SHA256SUMS"):
     b = fx.make_bundle(lab + "/incoming", files, random.Random(v["seed"] + 2))
     json.dump(b, open(st + "/bundle.json", "w"), indent=1)
     import time
@@ -42,6 +42,7 @@ if not os.path.isdir(lab + "/incoming") or not os.listdir(lab + "/incoming"):
     json.dump({fn: os.stat(lab + "/incoming/" + fn).st_mtime for fn in b["good"]}, open(st + "/bundle-mtimes.json", "w"))
 PY
 rc=$?; [ $rc = 0 ] || { echo "prepare-lab: fixture generation failed"; exit 1; }
+rm -rf "$LAB/model/.cache" "$LAB/hf-cache"
 chmod -R a+rX "$LAB" 2>/dev/null
 "$PLATFORM_DIR/stack.sh" up store llm >/dev/null || { echo "prepare-lab: stack did not come up healthy (platform/stack.sh status)"; exit 1; }
 docker ps -a --filter name=aiinfra-lab02- -q | xargs -r docker rm -f >/dev/null 2>&1
